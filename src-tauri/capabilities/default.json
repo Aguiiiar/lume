@@ -1,0 +1,10 @@
+{
+  "identifier": "default",
+  "description": "Janela principal do Lume",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-fullscreen",
+    "dialog:allow-open"
+  ]
+}

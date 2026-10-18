@@ -1,0 +1,11 @@
+node_modules/
+dist/
+src-tauri/target/
+tools/mpv/
+*.log
+src-tauri/gen/
+tools/*.7z
+release/
+data/
+*.sqlite*
+portable.marker

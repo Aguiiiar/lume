@@ -1,0 +1,74 @@
+name: Release Windows
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Preparar Rust estável
+        run: rustup update stable --no-self-update
+      - run: npm test
+      - run: npm run release:notices
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Compilar instalador e portátil
+        run: npm run release:build
+      - name: Conferir conteúdo do portátil
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem release -Recurse -Filter '*-portable.zip' | Select-Object -First 1
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath "$env:RUNNER_TEMP\lume-portable"
+          $portable = "$env:RUNNER_TEMP\lume-portable\Lume"
+          if (!(Test-Path "$portable\Lume.exe") -or !(Test-Path "$portable\portable.marker")) { throw 'Portátil incompleto' }
+          if (Test-Path "$portable\data") { throw 'Dados locais não podem acompanhar a release' }
+          if (Get-ChildItem $portable -Recurse -Include 'mpv.exe','*.sqlite','*.mkv','*.7z') { throw 'Conteúdo não permitido no portátil público' }
+      - name: Testar instalação no runner descartável
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Recurse -Filter '*-setup.exe' | Select-Object -First 1
+          $destination = "$env:RUNNER_TEMP\lume-installer-smoke"
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$destination" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Instalador retornou $($process.ExitCode)" }
+          if (!(Test-Path "$destination\lume.exe")) { throw 'Executável não instalado' }
+          if (Test-Path "$destination\portable.marker") { throw 'Instalador não pode ativar modo portátil' }
+          if (Get-ChildItem $destination -Recurse -Filter 'mpv.exe') { throw 'mpv não deve estar embutido' }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lume-windows
+          path: release/v*/*
+          if-no-files-found: error
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: lume-windows
+          path: release-assets
+      - name: Publicar pré-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          mapfile -d '' assets < <(find release-assets -type f -print0)
+          if [ "${#assets[@]}" -ne 4 ]; then echo "Esperados quatro arquivos de release"; exit 1; fi
+          gh release create "$RELEASE_TAG" --verify-tag --prerelease --title "Lume $RELEASE_TAG" --notes-file "releases/$RELEASE_TAG.md" "${assets[@]}"
