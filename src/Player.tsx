@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -10,6 +10,7 @@ import {
   SkipForward,
   Volume2,
   Maximize,
+  Minimize,
   Subtitles,
   RotateCcw,
   RotateCw,
@@ -17,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Media, episodeLabel, time } from "./model";
+import usePlayerChrome from "./usePlayerChrome";
 interface Track {
   id: number;
   type: string;
@@ -42,11 +44,15 @@ export default function Player({
   restart,
   onClose,
   onNext,
+  fullscreen,
+  onToggleFullscreen,
 }: {
   media: Media;
   restart: boolean;
   onClose: () => void;
   onNext?: () => void;
+  fullscreen: boolean;
+  onToggleFullscreen: () => Promise<void>;
 }) {
   const stage = useRef<HTMLDivElement>(null),
     ready = useRef(false),
@@ -64,6 +70,23 @@ export default function Player({
   });
   const [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
+  const footer = useRef<HTMLElement>(null);
+  const position = useRef(state.position);
+  position.current = state.position;
+  const [footerHeight, setFooterHeight] = useState(180);
+  const chrome = usePlayerChrome(
+    media.id,
+    fullscreen,
+    loading || !!error || state.paused || state.ended,
+  );
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      if (footer.current)
+        setFooterHeight(footer.current.getBoundingClientRect().height);
+    });
+    observer.observe(footer.current!);
+    return () => observer.disconnect();
+  }, []);
   const control = (action: string, value: unknown = null) =>
     invoke("player_control", { action, value }).catch((e) =>
       setError(String(e)),
@@ -130,28 +153,54 @@ export default function Player({
     };
   }, [media.id]);
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).matches("input,select,button")) return;
-      if (e.code === "Space") {
-        e.preventDefault();
+    const shortcut = (key: string) => {
+      chrome.reveal();
+      if (key === "Space") {
         void control("pause");
       }
-      if (e.code === "ArrowRight") {
-        e.preventDefault();
-        void control("seek", state.position + 10);
+      if (key === "ArrowRight") {
+        void control("seek", position.current + 10);
       }
-      if (e.code === "ArrowLeft") {
-        e.preventDefault();
-        void control("seek", Math.max(0, state.position - 10));
+      if (key === "ArrowLeft") {
+        void control("seek", Math.max(0, position.current - 10));
       }
-      if (e.code === "Escape") void close();
+    };
+    const handler = (e: KeyboardEvent) => {
+      if (
+        (e.target as HTMLElement).closest(
+          "input,select,button,textarea,[contenteditable=true]",
+        )
+      )
+        return;
+      if (!["Space", "ArrowRight", "ArrowLeft"].includes(e.code)) return;
+      e.preventDefault();
+      if (e.code !== "Space" || !e.repeat) shortcut(e.code);
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [state.position]);
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
+  }, [chrome.reveal, media.id]);
   return (
-    <div className="player-page">
-      <header className="player-header">
+    <div
+      className={`player-page${fullscreen ? " is-fullscreen" : ""}${!chrome.visible ? " controls-hidden" : ""}`}
+      style={{ "--player-footer-height": `${footerHeight}px` } as CSSProperties}
+      onFocusCapture={(e) => {
+        if ((e.target as HTMLElement).matches(":focus-visible,select"))
+          chrome.setInteracting(true);
+        chrome.reveal();
+      }}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget))
+          chrome.setInteracting(false);
+      }}
+      onPointerDownCapture={() => {
+        chrome.setInteracting(true);
+        chrome.reveal();
+      }}
+      onChangeCapture={() => chrome.setInteracting(false)}
+    >
+      <header className="player-header" inert={!chrome.visible}>
         <button
           className="icon-btn"
           title="Voltar à biblioteca"
@@ -185,7 +234,7 @@ export default function Player({
           </div>
         )}
       </div>
-      <footer className="player-footer">
+      <footer className="player-footer" ref={footer} inert={!chrome.visible}>
         {error && <p className="error-inline">{error}</p>}
         <div className="timeline">
           <span>{time(state.position)}</span>
@@ -327,19 +376,18 @@ export default function Player({
             )}
             <button
               className="icon-btn"
-              title="Tela cheia"
-              onClick={async () => {
-                const w = getCurrentWindow();
-                await w.setFullscreen(!(await w.isFullscreen()));
-              }}
+              title={
+                fullscreen ? "Sair da tela cheia (Esc)" : "Tela cheia (F11)"
+              }
+              onClick={() => void onToggleFullscreen()}
             >
-              <Maximize size={20} />
+              {fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
           </div>
         </div>
         <div className="player-hint">
           Espaço para pausar <span>·</span> ← → para voltar ou avançar 10s{" "}
-          <span>·</span> Progresso salvo automaticamente
+          <span>·</span> F11 tela cheia <span>·</span> Esc sair da tela cheia
         </div>
       </footer>
     </div>

@@ -1621,6 +1621,10 @@ svg {
   overflow: hidden;
 }
 .player-header {
+  flex-shrink: 0;
+  transition:
+    opacity 220ms ease,
+    margin-top 260ms ease;
   display: flex;
   align-items: center;
   gap: 17px;
@@ -1683,6 +1687,10 @@ svg {
   font-size: 14px;
 }
 .player-footer {
+  flex-shrink: 0;
+  transition:
+    opacity 220ms ease,
+    margin-bottom 260ms ease;
   padding: 18px 32px 12px;
   background: #171714;
   border-top: 1px solid #313128;
@@ -1756,6 +1764,19 @@ svg {
 }
 .player-hint > span {
   margin: 0 8px;
+}
+.player-page.is-fullscreen.controls-hidden {
+  cursor: none;
+}
+.player-page.is-fullscreen.controls-hidden .player-header {
+  opacity: 0;
+  margin-top: -82px;
+  pointer-events: none;
+}
+.player-page.is-fullscreen.controls-hidden .player-footer {
+  opacity: 0;
+  margin-bottom: calc(-1 * var(--player-footer-height));
+  pointer-events: none;
 }
 @keyframes spin {
   to {

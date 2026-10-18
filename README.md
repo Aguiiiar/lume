@@ -38,6 +38,8 @@ Você pode pular etapas e reabrir o assistente em **Configurações → Abrir as
 - Seleção de trilha de áudio e legendas internas ou externas.
 - Legenda externa com nome correspondente ao vídeo carregada automaticamente, inclusive em `subs`, `subtitles` ou `legendas`.
 - Histórico com retomada, marcação de assistido, tela cheia e próximo episódio.
+- **F11** alterna a tela cheia em todo o app; **Esc** sai dela sem fechar o vídeo.
+- Na reprodução em tela cheia, os controles desaparecem suavemente após 3 segundos sem movimento e voltam ao mover o mouse. Ao pausar ou interagir com os controles, eles permanecem visíveis.
 
 O Lume não move, renomeia ou apaga os vídeos. Use **Atualizar biblioteca** depois de adicionar arquivos às pastas. Arquivos indisponíveis mantêm seu histórico no catálogo.
 

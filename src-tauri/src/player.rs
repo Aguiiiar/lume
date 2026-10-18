@@ -263,6 +263,7 @@ pub fn start(
             "--osc=no",
             "--input-default-bindings=no",
             "--input-vo-keyboard=no",
+            "--cursor-autohide=3000",
             "--sub-auto=exact",
             "--sub-file-paths=subs:subtitles:legendas",
             "--alang=pt-BR,por,pt,jpn,eng",

@@ -2,6 +2,7 @@ mod bootstrap;
 mod library;
 mod maintenance;
 mod player;
+mod window_input;
 use std::{
     path::PathBuf,
     sync::{atomic::AtomicBool, Arc, Mutex},
@@ -206,6 +207,8 @@ pub fn run() {
                 portable,
                 download_busy: Arc::new(AtomicBool::new(false)),
             });
+            window_input::start(app.handle().clone(), app.state::<AppState>().player.clone())
+                .map_err(std::io::Error::other)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

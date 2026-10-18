@@ -51,6 +51,7 @@ import Artwork from "./Artwork";
 import Player from "./Player";
 import Onboarding, { type RuntimeInfo } from "./Onboarding";
 import Maintenance from "./Maintenance";
+import useFullscreen from "./useFullscreen";
 
 type View =
   | "home"
@@ -165,6 +166,9 @@ export default function App() {
     setLibrary(data);
     setMpv(await invoke<string | null>("mpv_status"));
   };
+  const { fullscreen, toggleFullscreen } = useFullscreen((message) =>
+    notify(message, true),
+  );
   useEffect(() => {
     void reload()
       .then(async () => {
@@ -413,6 +417,8 @@ export default function App() {
         key={active.media.id}
         media={active.media}
         restart={active.restart}
+        fullscreen={fullscreen}
+        onToggleFullscreen={toggleFullscreen}
         onClose={() => {
           setActive(null);
           void reload().catch((e) => notify(String(e), true));
@@ -498,7 +504,7 @@ export default function App() {
             <span>Configurações</span>
           </button>
           <div className="sidebar-version">
-            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.1"}</span>
+            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.2"}</span>
           </div>
         </div>
       </aside>
@@ -1227,7 +1233,7 @@ export default function App() {
                       Um espaço para as suas histórias.
                       <br />
                       <span>
-                        Versão {runtime?.version ?? "0.1.1"} · Windows ·
+                        Versão {runtime?.version ?? "0.1.2"} · Windows ·
                         Biblioteca local
                       </span>
                     </p>
