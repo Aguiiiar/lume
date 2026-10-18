@@ -1,5 +1,6 @@
 mod bootstrap;
 mod library;
+mod maintenance;
 mod player;
 use std::{
     path::PathBuf,
@@ -22,6 +23,7 @@ struct RuntimeInfo {
     folders: Vec<String>,
     files: usize,
     version: String,
+    uninstall_available: bool,
 }
 #[tauri::command]
 fn app_status(state: State<'_, AppState>) -> library::Result<RuntimeInfo> {
@@ -40,7 +42,29 @@ fn app_status(state: State<'_, AppState>) -> library::Result<RuntimeInfo> {
         folders: library.folders,
         files: library.media.len(),
         version: env!("CARGO_PKG_VERSION").into(),
+        uninstall_available: std::env::current_exe()
+            .ok()
+            .and_then(|p| maintenance::uninstaller(&p, state.portable))
+            .is_some(),
     })
+}
+#[tauri::command]
+async fn updates_check(previews: bool) -> library::Result<maintenance::Update> {
+    tauri::async_runtime::spawn_blocking(move || maintenance::check(previews))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+fn release_open(version: String) -> library::Result<()> {
+    maintenance::open(std::ffi::OsStr::new(&maintenance::release_url(&version)?))
+}
+#[tauri::command]
+fn uninstall_open(app: tauri::AppHandle, state: State<'_, AppState>) -> library::Result<()> {
+    let current = std::env::current_exe().map_err(|e| e.to_string())?;
+    let uninstaller=maintenance::uninstaller(&current,state.portable).ok_or("Esta edição não possui desinstalador. A edição portátil pode ser removida excluindo sua pasta após fechar o aplicativo.")?;
+    maintenance::open(uninstaller.as_os_str())?;
+    app.exit(0);
+    Ok(())
 }
 #[tauri::command]
 fn onboarding_finish(state: State<'_, AppState>) -> library::Result<()> {
@@ -189,6 +213,9 @@ pub fn run() {
             app_status,
             onboarding_finish,
             player_install,
+            updates_check,
+            release_open,
+            uninstall_open,
             folder_scan,
             media_edit,
             media_mark,

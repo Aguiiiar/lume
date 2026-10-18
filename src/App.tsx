@@ -50,6 +50,7 @@ import type { Collection, Kind, Library, Media } from "./model";
 import Artwork from "./Artwork";
 import Player from "./Player";
 import Onboarding, { type RuntimeInfo } from "./Onboarding";
+import Maintenance from "./Maintenance";
 
 type View =
   | "home"
@@ -497,7 +498,7 @@ export default function App() {
             <span>Configurações</span>
           </button>
           <div className="sidebar-version">
-            LUME PARA WINDOWS <span>v0.1</span>
+            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.1"}</span>
           </div>
         </div>
       </aside>
@@ -1117,6 +1118,9 @@ export default function App() {
               )}
               {view === "settings" && (
                 <div className="settings-stack">
+                  {!demo && desktop && runtime && (
+                    <Maintenance runtime={runtime} />
+                  )}
                   {!demo && desktop && (
                     <section className="settings-card">
                       <div className="section-heading">
@@ -1222,7 +1226,10 @@ export default function App() {
                     <p>
                       Um espaço para as suas histórias.
                       <br />
-                      <span>Versão 0.1 · Windows · Biblioteca local</span>
+                      <span>
+                        Versão {runtime?.version ?? "0.1.1"} · Windows ·
+                        Biblioteca local
+                      </span>
                     </p>
                     {!demo && (
                       <button

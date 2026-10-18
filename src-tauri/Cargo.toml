@@ -1,6 +1,6 @@
 [package]
 name = "lume"
-version = "0.1.0"
+version = "0.1.1"
 description = "Biblioteca pessoal de filmes e séries"
 authors = ["Aguiiiar"]
 license = "MIT"
@@ -35,6 +35,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 sha2 = "0.10"
 sevenz-rust = { version = "0.6", default-features = false }
 tempfile = "3"
+semver = "1"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_System_Threading"] }

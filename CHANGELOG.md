@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 0.1.1 — manutenção pelo aplicativo
+
+- Busca manual de atualizações em Configurações, com opção de incluir pré-releases.
+- Abertura da página da nova release para baixar o instalador ou portátil.
+- Atalho para o desinstalador, com confirmação e fechamento do Lume.
+- Orientação específica de remoção para a edição portátil.
+- Versão completa exibida na interface.
+
 ## 0.1.0 — primeira pré-release pública
 
 - Biblioteca local para filmes, séries e animes.

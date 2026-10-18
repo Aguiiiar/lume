@@ -25,6 +25,7 @@ export interface RuntimeInfo {
   folders: string[];
   files: number;
   version: string;
+  uninstallAvailable: boolean;
 }
 interface Progress {
   received: number;

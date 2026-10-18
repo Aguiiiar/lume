@@ -61,7 +61,13 @@ Biblioteca/
 
 ## Atualizações e dados
 
-Na versão instalada, instale a nova versão sobre a anterior. No portátil, substitua os arquivos do programa e **preserve a pasta `data`**. Não há atualização automática nesta versão.
+Em **Configurações → Buscar atualizações**, o Lume consulta as releases públicas do GitHub. A consulta é manual e permite incluir pré-releases. Quando há uma versão mais recente, **Abrir download** abre a página dessa release no navegador. Não há instalação automática nesta versão.
+
+Na versão instalada, instale a nova versão sobre a anterior. No portátil, substitua os arquivos do programa e **preserve a pasta `data`**.
+
+Para desinstalar a edição instalada, use **Configurações → Desinstalar** no Lume, confirme a abertura do assistente e siga suas etapas. O app será fechado. Também é possível remover pelo Windows em **Configurações → Aplicativos → Aplicativos instalados → Lume**. O assistente permite escolher a remoção dos dados do aplicativo; seus vídeos não são apagados.
+
+A edição portátil não registra desinstalador. Feche o Lume e remova sua pasta. Faça backup de `data` para preservar catálogo, histórico e player preparado. Vídeos em pastas externas não são removidos.
 
 O catálogo é um SQLite em `library.sqlite`. No modo portátil, o player preparado também fica em `data/players`, e acompanha a pasta quando ela é movida. Vídeos em outros discos mantêm os caminhos originais; movê-los não atualiza automaticamente suas referências.
 

@@ -2015,6 +2015,31 @@ svg {
     display: none;
   }
 }
+.maintenance-channel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.maintenance-result {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.maintenance-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.maintenance-error {
+  color: #f4a9a2;
+  overflow-wrap: anywhere;
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *:before,
