@@ -9,3 +9,6 @@ release/
 data/
 *.sqlite*
 portable.marker
+*.key
+*.pfx
+secrets/

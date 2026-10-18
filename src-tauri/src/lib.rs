@@ -1,3 +1,4 @@
+mod auto_update;
 mod bootstrap;
 mod library;
 mod maintenance;
@@ -13,6 +14,7 @@ struct AppState {
     player: player::Shared,
     portable: bool,
     download_busy: Arc<AtomicBool>,
+    update_busy: Arc<AtomicBool>,
 }
 
 #[derive(serde::Serialize)]
@@ -54,6 +56,29 @@ async fn updates_check(previews: bool) -> library::Result<maintenance::Update> {
     tauri::async_runtime::spawn_blocking(move || maintenance::check(previews))
         .await
         .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn updates_install(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    version: String,
+    previews: bool,
+) -> library::Result<()> {
+    if state
+        .download_busy
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return Err("Aguarde a preparação do player antes de atualizar o Lume.".into());
+    }
+    auto_update::install(
+        app,
+        state.player.clone(),
+        state.portable,
+        state.update_busy.clone(),
+        version,
+        previews,
+    )
+    .await
 }
 #[tauri::command]
 fn release_open(version: String) -> library::Result<()> {
@@ -181,6 +206,7 @@ fn player_stop(app: tauri::AppHandle, state: State<'_, AppState>) {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let (dir, portable) =
                 bootstrap::data_directory(app.path().app_data_dir()?, &std::env::current_exe()?)
@@ -206,6 +232,7 @@ pub fn run() {
                 player: Arc::new(Mutex::new(player::Player::default())),
                 portable,
                 download_busy: Arc::new(AtomicBool::new(false)),
+                update_busy: Arc::new(AtomicBool::new(false)),
             });
             window_input::start(app.handle().clone(), app.state::<AppState>().player.clone())
                 .map_err(std::io::Error::other)?;
@@ -217,6 +244,7 @@ pub fn run() {
             onboarding_finish,
             player_install,
             updates_check,
+            updates_install,
             release_open,
             uninstall_open,
             folder_scan,

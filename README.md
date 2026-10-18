@@ -66,9 +66,13 @@ Biblioteca/
 
 ## Atualizações e dados
 
-Em **Configurações → Buscar atualizações**, o Lume consulta as releases públicas do GitHub. A consulta é manual e permite incluir pré-releases. Quando há uma versão mais recente, **Abrir download** abre a página dessa release no navegador. Não há instalação automática nesta versão.
+Em **Configurações → Buscar atualizações**, o Lume consulta as releases públicas do GitHub. A consulta ocorre ao clicar e permite incluir pré-releases.
 
-Na versão instalada, instale a nova versão sobre a anterior. No portátil, substitua os arquivos do programa e **preserve a pasta `data`**.
+Na **edição instalada**, a partir da 0.1.4, **Atualizar** oferece confirmação e progresso. O Lume baixa o instalador da versão selecionada, verifica a assinatura digital e a versão assinada, e só então inicia a instalação. O aplicativo fecha e reabre; catálogo, histórico e vídeos são preservados. Falhas de download ou assinatura mantêm a versão atual funcionando.
+
+Na **edição portátil**, **Abrir download** abre a release no navegador. O portátil não baixa nem instala atualizações automaticamente. A regra também é verificada no backend.
+
+Para migrar da **0.1.3 ou anterior para a 0.1.4**, baixe e execute o novo setup manualmente sobre a instalação anterior. A atualização pelo app passa a valer para as próximas versões. No portátil, substitua os arquivos do programa e **preserve a pasta `data`**.
 
 Para desinstalar a edição instalada, use **Configurações → Desinstalar** no Lume, confirme a abertura do assistente e siga suas etapas. O app será fechado. Também é possível remover pelo Windows em **Configurações → Aplicativos → Aplicativos instalados → Lume**. O assistente permite escolher a remoção dos dados do aplicativo; seus vídeos não são apagados.
 
@@ -96,7 +100,7 @@ npm run build
 npm run release:build
 ```
 
-O último comando gera instalador, ZIP portátil, avisos de dependências e SHA-256 em `release/v<versão>`. Ele gera os avisos a partir dos locks antes de compilar. Não copia arquivos de mídia, dados locais ou binários do mpv para a release.
+O último comando requer `TAURI_SIGNING_PRIVATE_KEY` e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` no ambiente e gera instalador, assinatura `.sig`, manifesto `latest.json`, ZIP portátil, avisos de dependências e SHA-256 em `release/v<versão>`. Ele gera os avisos a partir dos locks antes de compilar. Não copia arquivos de mídia, dados locais, chaves privadas ou binários do mpv para a release.
 
 A integração com mpv usa um processo separado, JSON IPC e uma superfície HWND nativa no Windows. Eventos e comandos usam conexões distintas para permitir controles durante a pausa. A interface usa Tauri + React/TypeScript; a biblioteca usa Rust + SQLite.
 
@@ -106,7 +110,9 @@ A integração com mpv usa um processo separado, JSON IPC e uma superfície HWND
 2. Escreva as notas em `releases/v<versão>.md`.
 3. Faça commit e envie uma tag `v<versão>`.
 
-O workflow **Release Windows** executa os testes, compila os pacotes, verifica o conteúdo do ZIP, testa o instalador em um runner descartável e publica uma pré-release com os artefatos. Uma execução manual gera artefatos sem publicar uma release. Apenas o job de publicação recebe permissão de escrita em conteúdos do repositório.
+O workflow **Release Windows** executa os testes, assina os pacotes, verifica o conteúdo do ZIP e a assinatura, rejeita pacotes alterados e versões divergentes e testa a atualização sobre uma instalação anterior em runner descartável. Também testa instalação/desinstalação e publica uma pré-release com seis artefatos. Uma execução manual gera artefatos sem publicar uma release. Apenas o job de publicação recebe permissão de escrita em conteúdos do repositório.
+
+A chave pública do updater fica em `tauri.conf.json`. A chave privada e sua senha ficam nos secrets `TAURI_SIGNING_PRIVATE_KEY` e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` do repositório. Guarde uma cópia de recuperação da chave e senha fora do repositório; não gere uma chave diferente a cada release. Para um fork, gere sua própria chave com o `tauri signer generate` e configure seus secrets e sua chave pública. A assinatura do updater é independente de certificados de assinatura de código do Windows.
 
 ## Limites atuais
 

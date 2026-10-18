@@ -1,6 +1,6 @@
 [package]
 name = "lume"
-version = "0.1.3"
+version = "0.1.4"
 description = "Biblioteca pessoal de filmes e séries"
 authors = ["Aguiiiar"]
 license = "MIT"
@@ -10,6 +10,7 @@ default-run = "lume"
 
 [features]
 smoke-test = []
+updater-smoke = ["tauri/test"]
 
 [[bin]]
 name = "lume"
@@ -19,6 +20,11 @@ path = "src/main.rs"
 name = "lume-check"
 path = "src/smoke.rs"
 required-features = ["smoke-test"]
+
+[[bin]]
+name = "lume-updater-check"
+path = "src/updater_smoke.rs"
+required-features = ["updater-smoke"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -36,6 +42,7 @@ sha2 = "0.10"
 sevenz-rust = { version = "0.6", default-features = false }
 tempfile = "3"
 semver = "1"
+tauri-plugin-updater = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_System_Threading"] }

@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 0.1.4 — atualização pela edição instalada
+
+- Atualizador oficial do Tauri na edição instalada, com confirmação, progresso, verificação de assinatura digital e instalação seguida de reabertura.
+- Edição portátil continua apenas avisando sobre novas versões e abrindo o download manual.
+- Bloqueio da instalação automática no backend quando a cópia é portátil ou não foi instalada pelo setup.
+- Pacotes de atualização assinados com chave própria; manifesto e assinatura publicados junto dos downloads.
+- Verificação da versão assinada e testes de rejeição de pacotes alterados.
+- Teste de atualização sobre a 0.1.3 e preservação do catálogo em runner descartável.
+
 ## 0.1.3 — controles e idiomas do player
 
 - Removida a faixa permanente de dicas de atalhos do player.

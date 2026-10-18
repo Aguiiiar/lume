@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { RefreshCw, ExternalLink, Trash2 } from "lucide-react";
 import type { RuntimeInfo } from "./Onboarding";
 
@@ -16,6 +17,47 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
   const [update, setUpdate] = useState<Update | null>(null);
   const [error, setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
+  const updateDialog = useRef<HTMLDialogElement>(null);
+  const [installing, setInstalling] = useState(false);
+  const [download, setDownload] = useState<{
+    stage: string;
+    received: number;
+    total: number | null;
+  } | null>(null);
+  const canInstall = !runtime.portable && runtime.uninstallAvailable;
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ stage: string; received: number; total: number | null }>(
+      "update-progress",
+      ({ payload }) => setDownload(payload),
+    )
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      })
+      .catch((e) => {
+        if (!disposed) setError(String(e));
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+  async function installUpdate() {
+    if (!canInstall || !update?.available || !update.latest) return;
+    setError("");
+    setDownload(null);
+    setInstalling(true);
+    try {
+      await invoke("updates_install", { version: update.latest, previews });
+    } catch (e) {
+      setError(String(e));
+      updateDialog.current?.close();
+    } finally {
+      setInstalling(false);
+    }
+  }
   async function check() {
     setBusy(true);
     setError("");
@@ -56,7 +98,7 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
           </div>
           <button
             className="button secondary small"
-            disabled={busy}
+            disabled={busy || installing}
             onClick={() => void check()}
           >
             <RefreshCw size={16} />
@@ -67,7 +109,7 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
           <input
             type="checkbox"
             checked={previews}
-            disabled={busy}
+            disabled={busy || installing}
             onChange={(e) => {
               setPreviews(e.target.checked);
               setUpdate(null);
@@ -76,8 +118,11 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
           Incluir versões de teste (pré-releases)
         </label>
         <p>
-          A consulta ocorre ao clicar. Para atualizar, baixe o instalador ou ZIP
-          da nova versão. A instalação não é automática.
+          {runtime.portable
+            ? "Edição portátil: o Lume avisa quando há uma nova versão. Baixe o ZIP e substitua os arquivos do programa, preservando a pasta data."
+            : canInstall
+              ? "Busque novas versões e escolha Atualizar para baixar, verificar e instalar pelo próprio Lume. O aplicativo será fechado e reaberto durante a instalação."
+              : "Esta cópia não foi instalada pelo setup. Para atualizar, abra a página da release e baixe o instalador ou portátil."}
         </p>
         {update && (
           <div className="maintenance-result" role="status">
@@ -89,12 +134,24 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
                   : "Ainda não há releases no canal selecionado."}
             </p>
             {update.available && (
-              <button
-                className="button secondary small"
-                onClick={() => void openRelease()}
-              >
-                Abrir download <ExternalLink size={15} />
-              </button>
+              <div className="maintenance-actions">
+                {canInstall && (
+                  <button
+                    className="button small"
+                    disabled={busy || installing}
+                    onClick={() => updateDialog.current?.showModal()}
+                  >
+                    Atualizar
+                  </button>
+                )}
+                <button
+                  className="button secondary small"
+                  disabled={installing}
+                  onClick={() => void openRelease()}
+                >
+                  Abrir download <ExternalLink size={15} />
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -116,7 +173,7 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
           {!runtime.portable && (
             <button
               className="button secondary small"
-              disabled={!runtime.uninstallAvailable}
+              disabled={!runtime.uninstallAvailable || installing}
               onClick={() => dialog.current?.showModal()}
             >
               <Trash2 size={16} />
@@ -156,6 +213,69 @@ export default function Maintenance({ runtime }: { runtime: RuntimeInfo }) {
           <button className="button" onClick={() => void uninstall()}>
             Abrir desinstalador
           </button>
+        </div>
+      </dialog>
+      <dialog
+        className="modal update-dialog"
+        ref={updateDialog}
+        onCancel={(e) => {
+          if (installing) e.preventDefault();
+        }}
+      >
+        <div className="modal-heading">
+          <h2>
+            {installing
+              ? "Atualizando o Lume"
+              : `Atualizar para ${update?.latest}?`}
+          </h2>
+        </div>
+        <div className="update-dialog-content">
+          <p>
+            O pacote será baixado e sua assinatura digital será verificada.
+            Depois, o Lume será fechado para instalar a nova versão e reabrir.
+            Seu catálogo, histórico e vídeos serão preservados.
+          </p>
+          {installing && (
+            <div className="update-download" role="status" aria-live="polite">
+              <p>
+                {download?.stage === "install"
+                  ? "Preparando a instalação…"
+                  : download?.stage === "verify"
+                    ? "Verificando assinatura digital…"
+                    : "Baixando a atualização…"}
+              </p>
+              <progress
+                aria-label="Download da atualização"
+                max={download?.total || 1}
+                value={
+                  download?.stage === "download" && download.total
+                    ? download.received
+                    : undefined
+                }
+              />
+              {download?.stage === "download" && (
+                <span>
+                  {(download.received / 1048576).toFixed(1)} MB
+                  {download.total
+                    ? ` de ${(download.total / 1048576).toFixed(1)} MB`
+                    : ""}
+                </span>
+              )}
+            </div>
+          )}
+          {!installing && (
+            <div className="maintenance-actions">
+              <button
+                className="button secondary"
+                onClick={() => updateDialog.current?.close()}
+              >
+                Cancelar
+              </button>
+              <button className="button" onClick={() => void installUpdate()}>
+                Baixar e instalar
+              </button>
+            </div>
+          )}
         </div>
       </dialog>
     </>

@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { zipSync, strToU8 } from "fflate";
+import { updaterManifest } from "./updater-manifest.mjs";
 const project = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -56,10 +57,28 @@ export function packageRelease(root = project) {
     throw new Error("Não foi encontrado um único instalador para esta versão.");
   const setup = path.join(release, `${stem}-setup.exe`);
   fs.copyFileSync(path.join(nsis, installers[0]), setup);
+  const signature = setup + ".sig";
+  fs.copyFileSync(path.join(nsis, installers[0] + ".sig"), signature);
+  const manifest = path.join(release, "latest.json");
+  fs.writeFileSync(
+    manifest,
+    JSON.stringify(
+      updaterManifest(
+        pkg.version,
+        fs.readFileSync(signature, "utf8"),
+        fs.readFileSync(
+          path.join(root, "releases", `v${pkg.version}.md`),
+          "utf8",
+        ),
+      ),
+      null,
+      2,
+    ) + "\n",
+  );
   const notice = path.join(release, "THIRD-PARTY-NOTICES.txt");
   fs.copyFileSync(path.join(root, "THIRD-PARTY-NOTICES.txt"), notice);
   const checksums =
-    [setup, zip, notice]
+    [setup, zip, notice, signature, manifest]
       .map(
         (file) =>
           `${createHash("sha256").update(fs.readFileSync(file)).digest("hex")}  ${path.basename(file)}`,
@@ -67,7 +86,7 @@ export function packageRelease(root = project) {
       .join("\n") + "\n";
   fs.writeFileSync(path.join(release, "SHA256SUMS.txt"), checksums);
   console.log(
-    `Release preparada em release/v${pkg.version}: instalador, portátil, avisos e SHA-256.`,
+    `Release preparada em release/v${pkg.version}: instalador assinado para updater, manifesto, portátil, avisos e SHA-256.`,
   );
   return release;
 }

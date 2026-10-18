@@ -504,7 +504,7 @@ export default function App() {
             <span>Configurações</span>
           </button>
           <div className="sidebar-version">
-            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.3"}</span>
+            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.4"}</span>
           </div>
         </div>
       </aside>
@@ -1233,7 +1233,7 @@ export default function App() {
                       Um espaço para as suas histórias.
                       <br />
                       <span>
-                        Versão {runtime?.version ?? "0.1.3"} · Windows ·
+                        Versão {runtime?.version ?? "0.1.4"} · Windows ·
                         Biblioteca local
                       </span>
                     </p>

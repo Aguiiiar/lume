@@ -26,6 +26,9 @@ jobs:
       - run: npm run release:notices
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Compilar instalador e portátil
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run release:build
       - name: Conferir conteúdo do portátil
         shell: pwsh
@@ -36,12 +39,54 @@ jobs:
           if (!(Test-Path "$portable\Lume.exe") -or !(Test-Path "$portable\portable.marker")) { throw 'Portátil incompleto' }
           if (Test-Path "$portable\data") { throw 'Dados locais não podem acompanhar a release' }
           if (Get-ChildItem $portable -Recurse -Include 'mpv.exe','*.sqlite','*.mkv','*.7z') { throw 'Conteúdo não permitido no portátil público' }
+      - name: Verificar assinatura e rejeição de pacotes alterados
+        shell: pwsh
+        run: |
+          cargo build --locked --manifest-path src-tauri/Cargo.toml --features updater-smoke --bin lume-updater-check
+          $release = Get-ChildItem release -Directory | Select-Object -First 1
+          & src-tauri/target/debug/lume-updater-check.exe verify $release.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Falha na verificação criptográfica do updater' }
+      - name: Testar atualização sobre instalação anterior
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $previous = "$env:RUNNER_TEMP\lume-previous"
+          New-Item -ItemType Directory -Path $previous -Force | Out-Null
+          gh release download v0.1.3 --repo Aguiiiar/lume --pattern '*-setup.exe' --pattern SHA256SUMS.txt --dir $previous
+          if ($LASTEXITCODE -ne 0) { throw 'Não foi possível baixar a versão anterior' }
+          $old = Get-ChildItem $previous -Filter '*-setup.exe' | Select-Object -First 1
+          $expected = ((Get-Content "$previous\SHA256SUMS.txt" | Where-Object { $_.EndsWith($old.Name) }) -split '  ')[0]
+          if ((Get-FileHash $old.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Hash da versão anterior inválido' }
+          $destination = "$env:RUNNER_TEMP\lume-update-smoke"
+          $process = Start-Process -FilePath $old.FullName -ArgumentList "/S /D=$destination" -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw 'Falha ao instalar a versão anterior' }
+          $data = "$env:APPDATA\local.lume.desktop"
+          New-Item -ItemType Directory -Path $data -Force | Out-Null
+          'catalog-fixture' | Set-Content "$data\library.sqlite"
+          $release = Get-ChildItem release -Directory | Select-Object -First 1
+          & src-tauri/target/debug/lume-updater-check.exe install $release.FullName "$destination\lume.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao iniciar o updater Tauri' }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          for ($attempt = 0; $attempt -lt 60; $attempt++) {
+            $installed = (Get-Item "$destination\lume.exe" -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+            $updaterRunning = Get-Process -Name "*-$version-installer" -ErrorAction SilentlyContinue
+            if ($installed -eq $version -and !$updaterRunning) { break }
+            Start-Sleep -Seconds 1
+          }
+          if ($installed -ne $version -or $updaterRunning) { throw "A atualização não concluiu a instalação da versão $version" }
+          if ((Get-Content "$data\library.sqlite" -Raw).Trim() -ne 'catalog-fixture') { throw 'O catálogo não foi preservado' }
+          if (Test-Path "$destination\portable.marker") { throw 'Atualização ativou modo portátil' }
+          $remove = Start-Process -FilePath "$destination\uninstall.exe" -ArgumentList '/S' -Wait -PassThru -WindowStyle Hidden
+          if ($remove.ExitCode -ne 0) { throw 'Falha ao limpar a instalação de teste' }
+          for ($attempt = 0; $attempt -lt 20 -and (Test-Path "$destination\lume.exe"); $attempt++) { Start-Sleep -Seconds 1 }
+          if (Test-Path "$destination\lume.exe") { throw 'Instalação de teste não removida' }
       - name: Testar instalação no runner descartável
         shell: pwsh
         run: |
           $installer = Get-ChildItem release -Recurse -Filter '*-setup.exe' | Select-Object -First 1
           $destination = "$env:RUNNER_TEMP\lume-installer-smoke"
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$destination" -Wait -PassThru
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S /D=$destination" -Wait -PassThru -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw "Instalador retornou $($process.ExitCode)" }
           if (!(Test-Path "$destination\lume.exe")) { throw 'Executável não instalado' }
           if (!(Test-Path "$destination\uninstall.exe")) { throw 'Desinstalador não instalado' }
@@ -75,5 +120,5 @@ jobs:
         shell: bash
         run: |
           mapfile -d '' assets < <(find release-assets -type f -print0)
-          if [ "${#assets[@]}" -ne 4 ]; then echo "Esperados quatro arquivos de release"; exit 1; fi
+          if [ "${#assets[@]}" -ne 6 ]; then echo "Esperados seis arquivos de release"; exit 1; fi
           gh release create "$RELEASE_TAG" --verify-tag --prerelease --title "Lume $RELEASE_TAG" --notes-file "releases/$RELEASE_TAG.md" "${assets[@]}"
