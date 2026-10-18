@@ -48,6 +48,14 @@ export default function useFullscreen(onError: (message: string) => void) {
             return;
           if (payload.key === "F11") void change();
           if (payload.key === "Escape") void change(false);
+          if (
+            payload.key === "KeyS" &&
+            !document.activeElement?.closest(
+              "input,select,textarea,[contenteditable=true]",
+            ) &&
+            !document.querySelector("dialog[open]")
+          )
+            void change(false);
         }),
       ]) {
         const unlisten = await pending;
@@ -59,7 +67,14 @@ export default function useFullscreen(onError: (message: string) => void) {
       if (!disposed) report.current(String(e));
     });
     const key = (e: KeyboardEvent) => {
-      if (e.code !== "F11" && e.code !== "Escape") return;
+      if (e.code !== "F11" && e.code !== "Escape" && e.code !== "KeyS") return;
+      if (
+        e.code === "KeyS" &&
+        (e.target as HTMLElement).closest(
+          "input,select,textarea,[contenteditable=true]",
+        )
+      )
+        return;
       // Let an open confirmation dialog handle Escape first.
       if (e.code === "Escape" && document.querySelector("dialog[open]")) return;
       e.preventDefault();

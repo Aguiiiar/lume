@@ -1714,6 +1714,7 @@ svg {
 }
 .player-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -1742,6 +1743,7 @@ svg {
 }
 .tracks {
   gap: 10px;
+  flex-wrap: wrap;
 }
 .tracks > label {
   font-size: 9px;
@@ -1751,19 +1753,11 @@ svg {
   align-items: center;
 }
 .tracks select {
-  font-size: 10px;
+  font-size: 11px;
   padding: 8px 5px;
-  max-width: 130px;
+  width: clamp(175px, 16vw, 245px);
+  max-width: 100%;
   background: #22221c;
-}
-.player-hint {
-  text-align: center;
-  color: #5a584c;
-  font-size: 9px;
-  margin-top: 17px;
-}
-.player-hint > span {
-  margin: 0 8px;
 }
 .player-page.is-fullscreen.controls-hidden {
   cursor: none;
@@ -1880,9 +1874,6 @@ svg {
     flex-direction: column;
     gap: 4px;
     align-items: flex-start;
-  }
-  .player-hint {
-    margin-top: 12px;
   }
 }
 @media (max-width: 980px) {

@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## 0.1.3 — controles e idiomas do player
+
+- Removida a faixa permanente de dicas de atalhos do player.
+- Setas para esquerda/direita buscam 10 segundos; cima/baixo alteram o volume em 5%.
+- Esc e S saem da tela cheia; F11 continua alternando o modo.
+- Clique no vídeo pausa/continua; duplo clique alterna a tela cheia sem alterar a pausa.
+- Idiomas de áudio e legenda traduzidos, com distinção de Brasil/Portugal quando indicada nos metadados.
+- Seletores ampliados e adaptáveis para acomodar os nomes dos idiomas.
+
 ## 0.1.2 — tela cheia e controles discretos
 
 - F11 alterna a tela cheia em todo o aplicativo.

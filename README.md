@@ -39,6 +39,9 @@ Você pode pular etapas e reabrir o assistente em **Configurações → Abrir as
 - Legenda externa com nome correspondente ao vídeo carregada automaticamente, inclusive em `subs`, `subtitles` ou `legendas`.
 - Histórico com retomada, marcação de assistido, tela cheia e próximo episódio.
 - **F11** alterna a tela cheia em todo o app; **Esc** sai dela sem fechar o vídeo.
+- No player, **S** também sai da tela cheia, **Espaço** pausa/continua, **←/→** voltam/avançam 10 segundos e **↑/↓** aumentam/diminuem o volume em 5%.
+- Clique no vídeo para pausar/continuar; duplo clique alterna a tela cheia. As dicas de atalhos ficam nesta documentação, sem faixa fixa no player.
+- Os seletores mostram nomes de idiomas em português. `por` sem indicação regional aparece como **Português**; **Português (Brasil)** e **Português (Portugal)** são mostrados quando há indicação nos metadados ou no sufixo da legenda externa.
 - Na reprodução em tela cheia, os controles desaparecem suavemente após 3 segundos sem movimento e voltam ao mover o mouse. Ao pausar ou interagir com os controles, eles permanecem visíveis.
 
 O Lume não move, renomeia ou apaga os vídeos. Use **Atualizar biblioteca** depois de adicionar arquivos às pastas. Arquivos indisponíveis mantêm seu histórico no catálogo.

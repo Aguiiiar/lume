@@ -19,14 +19,7 @@ import {
 } from "lucide-react";
 import { Media, episodeLabel, time } from "./model";
 import usePlayerChrome from "./usePlayerChrome";
-interface Track {
-  id: number;
-  type: string;
-  lang?: string;
-  title?: string;
-  codec?: string;
-  external?: boolean;
-}
+import { trackLabel, type Track } from "./tracks";
 interface Snapshot {
   id: number;
   position: number;
@@ -73,6 +66,10 @@ export default function Player({
   const footer = useRef<HTMLElement>(null);
   const position = useRef(state.position);
   position.current = state.position;
+  const volume = useRef(state.volume);
+  volume.current = state.volume;
+  const toggleFullscreen = useRef(onToggleFullscreen);
+  toggleFullscreen.current = onToggleFullscreen;
   const [footerHeight, setFooterHeight] = useState(180);
   const chrome = usePlayerChrome(
     media.id,
@@ -164,23 +161,64 @@ export default function Player({
       if (key === "ArrowLeft") {
         void control("seek", Math.max(0, position.current - 10));
       }
+      if (key === "ArrowUp" || key === "ArrowDown") {
+        volume.current = Math.max(
+          0,
+          Math.min(100, volume.current + (key === "ArrowUp" ? 5 : -5)),
+        );
+        void control("volume", volume.current);
+      }
     };
+    const playbackKeys = [
+      "Space",
+      "ArrowRight",
+      "ArrowLeft",
+      "ArrowUp",
+      "ArrowDown",
+    ];
+    const editing = () =>
+      !!document.activeElement?.closest(
+        "input,select,textarea,[contenteditable=true]",
+      ) || !!document.querySelector("dialog[open]");
     const handler = (e: KeyboardEvent) => {
-      if (
-        (e.target as HTMLElement).closest(
-          "input,select,button,textarea,[contenteditable=true]",
-        )
-      )
-        return;
-      if (!["Space", "ArrowRight", "ArrowLeft"].includes(e.code)) return;
-      e.preventDefault();
-      if (e.code !== "Space" || !e.repeat) shortcut(e.code);
+      if (!editing() && playbackKeys.includes(e.code)) e.preventDefault();
     };
+    let disposed = false;
+    const cleanups: (() => void)[] = [];
+    const register = async () => {
+      for (const pending of [
+        listen<{ key: string }>("window-shortcut", ({ payload }) => {
+          if (!editing() && playbackKeys.includes(payload.key))
+            shortcut(payload.key);
+        }),
+        listen<{ id: number; kind: string }>(
+          "player-pointer",
+          ({ payload }) => {
+            if (payload.id !== media.id || loading || error) return;
+            if (document.activeElement instanceof HTMLElement)
+              document.activeElement.blur();
+            chrome.setInteracting(false);
+            chrome.reveal();
+            if (payload.kind === "single") void control("pause");
+            if (payload.kind === "double") void toggleFullscreen.current();
+          },
+        ),
+      ]) {
+        const fn = await pending;
+        if (disposed) fn();
+        else cleanups.push(fn);
+      }
+    };
+    void register().catch((e) => {
+      if (!disposed) setError(String(e));
+    });
     window.addEventListener("keydown", handler);
     return () => {
+      disposed = true;
+      cleanups.forEach((fn) => fn());
       window.removeEventListener("keydown", handler);
     };
-  }, [chrome.reveal, media.id]);
+  }, [chrome.reveal, media.id, loading, error]);
   return (
     <div
       className={`player-page${fullscreen ? " is-fullscreen" : ""}${!chrome.visible ? " controls-hidden" : ""}`}
@@ -308,8 +346,7 @@ export default function Player({
                   .filter((t) => t.type === "audio")
                   .map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.title || t.lang || `Trilha ${t.id}`}
-                      {t.title && t.lang ? ` · ${t.lang}` : ""}
+                      {trackLabel(t)}
                     </option>
                   ))}
               </select>
@@ -331,7 +368,7 @@ export default function Player({
                   .filter((t) => t.type === "sub")
                   .map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.title || t.lang || `Legenda ${t.id}`}
+                      {trackLabel(t)}
                     </option>
                   ))}
               </select>
@@ -376,18 +413,12 @@ export default function Player({
             )}
             <button
               className="icon-btn"
-              title={
-                fullscreen ? "Sair da tela cheia (Esc)" : "Tela cheia (F11)"
-              }
+              title={fullscreen ? "Sair da tela cheia" : "Tela cheia"}
               onClick={() => void onToggleFullscreen()}
             >
               {fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
           </div>
-        </div>
-        <div className="player-hint">
-          Espaço para pausar <span>·</span> ← → para voltar ou avançar 10s{" "}
-          <span>·</span> F11 tela cheia <span>·</span> Esc sair da tela cheia
         </div>
       </footer>
     </div>
