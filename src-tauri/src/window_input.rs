@@ -110,7 +110,13 @@ pub fn start(app: tauri::AppHandle, player: Shared) -> crate::library::Result<()
                     if IsWindow(parent as _) == 0 {
                         break;
                     }
-                    focused = GetForegroundWindow() == parent as _;
+                    // Include only the controls window, not owned file dialogs.
+                    let foreground = GetForegroundWindow();
+                    let overlay = app
+                        .get_webview_window("player-overlay")
+                        .and_then(|w| w.hwnd().ok())
+                        .map(|h| h.0);
+                    focused = foreground == parent as _ || overlay == Some(foreground);
                     let modified = [VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN]
                         .iter()
                         .any(|k| GetAsyncKeyState(*k as i32) < 0);

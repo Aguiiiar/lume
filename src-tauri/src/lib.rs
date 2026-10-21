@@ -3,6 +3,7 @@ mod bootstrap;
 mod library;
 mod maintenance;
 mod player;
+mod player_overlay;
 mod window_input;
 use std::{
     path::PathBuf,
@@ -199,7 +200,12 @@ async fn player_control(
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn player_overlay(app: tauri::AppHandle, enabled: bool) -> library::Result<()> {
+    player_overlay::set(&app, enabled)
+}
+#[tauri::command]
 fn player_stop(app: tauri::AppHandle, state: State<'_, AppState>) {
+    let _ = player_overlay::set(&app, false);
     player::stop(&state.player);
     player::hide_surface(&app, state.player.clone());
 }
@@ -207,6 +213,21 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .on_window_event(|window, event| {
+            if window.label() == "main"
+                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            {
+                player_overlay::close(window.app_handle());
+            }
+            if window.label() == "main"
+                && matches!(
+                    event,
+                    tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_)
+                )
+            {
+                player_overlay::sync(window.app_handle());
+            }
+        })
         .setup(|app| {
             let (dir, portable) =
                 bootstrap::data_directory(app.path().app_data_dir()?, &std::env::current_exe()?)
@@ -256,6 +277,7 @@ pub fn run() {
             player_start,
             player_rect,
             player_control,
+            player_overlay,
             player_stop
         ])
         .build(tauri::generate_context!())

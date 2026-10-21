@@ -1,26 +1,14 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open } from "@tauri-apps/plugin-dialog";
-import {
-  ArrowLeft,
-  Play,
-  Pause,
-  SkipForward,
-  Volume2,
-  Maximize,
-  Minimize,
-  Subtitles,
-  RotateCcw,
-  RotateCw,
-  LoaderCircle,
-  AlertCircle,
-} from "lucide-react";
-import { Media, episodeLabel, time } from "./model";
+import { LoaderCircle, AlertCircle } from "lucide-react";
+import { Media } from "./model";
 import usePlayerChrome from "./usePlayerChrome";
-import { trackLabel, type Track } from "./tracks";
-interface Snapshot {
+import PlayerControls from "./PlayerControls";
+import usePlayerOverlay from "./usePlayerOverlay";
+import { type Track } from "./tracks";
+export interface Snapshot {
   id: number;
   position: number;
   duration: number;
@@ -63,27 +51,18 @@ export default function Player({
   });
   const [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
-  const footer = useRef<HTMLElement>(null);
   const position = useRef(state.position);
   position.current = state.position;
   const volume = useRef(state.volume);
   volume.current = state.volume;
   const toggleFullscreen = useRef(onToggleFullscreen);
   toggleFullscreen.current = onToggleFullscreen;
-  const [footerHeight, setFooterHeight] = useState(180);
   const chrome = usePlayerChrome(
     media.id,
     fullscreen,
     loading || !!error || state.paused || state.ended,
   );
-  useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      if (footer.current)
-        setFooterHeight(footer.current.getBoundingClientRect().height);
-    });
-    observer.observe(footer.current!);
-    return () => observer.disconnect();
-  }, []);
+
   const control = (action: string, value: unknown = null) =>
     invoke("player_control", { action, value }).catch((e) =>
       setError(String(e)),
@@ -149,6 +128,17 @@ export default function Player({
       void invoke("player_stop");
     };
   }, [media.id]);
+  const overlayEditing = usePlayerOverlay(
+    { media, state, loading, error, fullscreen, hasNext: !!onNext },
+    (action, value) => {
+      if (action === "close") void close();
+      else if (action === "next" && onNext)
+        void invoke("player_stop").then(onNext);
+      else if (action === "fullscreen") void onToggleFullscreen();
+      else void control(action, value);
+    },
+    setError,
+  );
   useEffect(() => {
     const shortcut = (key: string) => {
       chrome.reveal();
@@ -177,9 +167,11 @@ export default function Player({
       "ArrowDown",
     ];
     const editing = () =>
+      overlayEditing.current ||
       !!document.activeElement?.closest(
         "input,select,textarea,[contenteditable=true]",
-      ) || !!document.querySelector("dialog[open]");
+      ) ||
+      !!document.querySelector("dialog[open]");
     const handler = (e: KeyboardEvent) => {
       if (!editing() && playbackKeys.includes(e.code)) e.preventDefault();
     };
@@ -222,7 +214,6 @@ export default function Player({
   return (
     <div
       className={`player-page${fullscreen ? " is-fullscreen" : ""}${!chrome.visible ? " controls-hidden" : ""}`}
-      style={{ "--player-footer-height": `${footerHeight}px` } as CSSProperties}
       onFocusCapture={(e) => {
         if ((e.target as HTMLElement).matches(":focus-visible,select"))
           chrome.setInteracting(true);
@@ -238,189 +229,42 @@ export default function Player({
       }}
       onChangeCapture={() => chrome.setInteracting(false)}
     >
-      <header className="player-header" inert={!chrome.visible}>
-        <button
-          className="icon-btn"
-          title="Voltar à biblioteca"
-          onClick={() => void close()}
-        >
-          <ArrowLeft size={22} />
-        </button>
-        <div>
-          <h2>{media.title}</h2>
-          <span>
-            {episodeLabel(media)} <span className="dot">·</span>{" "}
-            {media.filename}
-          </span>
-        </div>
-        <span className="local-tag">ARQUIVO LOCAL</span>
-      </header>
-      <div className="video-stage" ref={stage}>
-        {loading && (
-          <div className="stage-message">
-            <LoaderCircle className="spin" />
-            <p>Preparando sua sessão…</p>
-          </div>
-        )}
-        {error && (
-          <div className="stage-message">
-            <AlertCircle />
-            <p>{error}</p>
-            <button className="button" onClick={() => void close()}>
-              Voltar à biblioteca
-            </button>
-          </div>
-        )}
-      </div>
-      <footer className="player-footer" ref={footer} inert={!chrome.visible}>
-        {error && <p className="error-inline">{error}</p>}
-        <div className="timeline">
-          <span>{time(state.position)}</span>
-          <input
-            aria-label="Posição do vídeo"
-            type="range"
-            min="0"
-            max={state.duration || 1}
-            step="1"
-            value={Math.min(state.position, state.duration || 1)}
-            disabled={loading || !!error}
-            onChange={(e) => void control("seek", Number(e.target.value))}
-          />
-          <span>{time(state.duration)}</span>
-        </div>
-        <div className="player-controls">
-          <div className="control-group">
-            <button
-              className="icon-btn"
-              title="Voltar 10 segundos"
-              onClick={() =>
-                void control("seek", Math.max(0, state.position - 10))
+      <PlayerControls
+        media={media}
+        state={state}
+        loading={loading}
+        error={error}
+        fullscreen={fullscreen}
+        visible={chrome.visible}
+        close={() => void close()}
+        onNext={
+          onNext
+            ? () => {
+                void invoke("player_stop").then(onNext);
               }
-            >
-              <RotateCcw size={20} />
-            </button>
-            <button
-              className="play-round"
-              title={state.paused ? "Reproduzir" : "Pausar"}
-              onClick={() => void control("pause")}
-            >
-              {state.paused || state.ended ? (
-                <Play size={23} fill="currentColor" />
-              ) : (
-                <Pause size={23} fill="currentColor" />
-              )}
-            </button>
-            <button
-              className="icon-btn"
-              title="Avançar 10 segundos"
-              onClick={() => void control("seek", state.position + 10)}
-            >
-              <RotateCw size={20} />
-            </button>
-            <Volume2 size={18} />
-            <input
-              className="volume-slider"
-              aria-label="Volume"
-              type="range"
-              min="0"
-              max="100"
-              value={state.volume}
-              onChange={(e) => void control("volume", Number(e.target.value))}
-            />
-          </div>
-          <div className="control-group tracks">
-            <label>
-              Áudio
-              <select
-                aria-label="Trilha de áudio"
-                value={String(state.aid ?? "no")}
-                onChange={(e) =>
-                  void control(
-                    "audio",
-                    e.target.value === "no" ? "no" : Number(e.target.value),
-                  )
-                }
-              >
-                <option value="no">Sem áudio</option>
-                {(state.tracks ?? [])
-                  .filter((t) => t.type === "audio")
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {trackLabel(t)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <label>
-              Legenda
-              <select
-                aria-label="Trilha de legenda"
-                value={String(state.sid ?? "no")}
-                onChange={(e) =>
-                  void control(
-                    "subtitle",
-                    e.target.value === "no" ? "no" : Number(e.target.value),
-                  )
-                }
-              >
-                <option value="no">Desativada</option>
-                {(state.tracks ?? [])
-                  .filter((t) => t.type === "sub")
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {trackLabel(t)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              className="icon-btn"
-              title="Carregar arquivo de legenda"
-              onClick={async () => {
-                const path = await open({
-                  title: "Escolher legenda",
-                  filters: [
-                    {
-                      name: "Legendas",
-                      extensions: [
-                        "srt",
-                        "ass",
-                        "ssa",
-                        "vtt",
-                        "sub",
-                        "idx",
-                        "sup",
-                      ],
-                    },
-                  ],
-                });
-                if (typeof path === "string") void control("sub-add", path);
-              }}
-            >
-              <Subtitles size={21} />
-            </button>
-            {onNext && (
-              <button
-                className="icon-btn"
-                title="Próximo episódio"
-                onClick={async () => {
-                  await invoke("player_stop");
-                  onNext();
-                }}
-              >
-                <SkipForward size={21} />
+            : undefined
+        }
+        onToggleFullscreen={() => void onToggleFullscreen()}
+        control={control}
+      >
+        <div className="video-stage" ref={stage}>
+          {loading && (
+            <div className="stage-message">
+              <LoaderCircle className="spin" />
+              <p>Preparando sua sessão…</p>
+            </div>
+          )}
+          {error && (
+            <div className="stage-message">
+              <AlertCircle />
+              <p>{error}</p>
+              <button className="button" onClick={() => void close()}>
+                Voltar à biblioteca
               </button>
-            )}
-            <button
-              className="icon-btn"
-              title={fullscreen ? "Sair da tela cheia" : "Tela cheia"}
-              onClick={() => void onToggleFullscreen()}
-            >
-              {fullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
-            </button>
-          </div>
+            </div>
+          )}
         </div>
-      </footer>
+      </PlayerControls>
     </div>
   );
 }

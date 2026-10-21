@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 0.1.5 — controles sobre o vídeo em tela cheia
+
+- A imagem mantém o mesmo tamanho e enquadramento quando os controles aparecem ou desaparecem no fullscreen.
+- Cabeçalho e controles em camada transparente sobre o vídeo, com degradê e fade suave de 280 ms, sem redistribuir o espaço da reprodução.
+- Controles continuam se ocultando após 3 segundos sem atividade e permanecem visíveis durante pausa, fim do vídeo e interação.
+- Transições respeitam a preferência do sistema por movimento reduzido.
+- Teste de atualização da instalação 0.1.4 para a nova versão, com preservação do catálogo.
+
 ## 0.1.4 — atualização pela edição instalada
 
 - Atualizador oficial do Tauri na edição instalada, com confirmação, progresso, verificação de assinatura digital e instalação seguida de reabertura.
