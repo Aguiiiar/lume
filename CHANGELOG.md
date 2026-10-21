@@ -1,5 +1,12 @@
 # Histórico de versões
 
+## 0.1.6 — capítulos, volume e nomes dos episódios
+
+- Botões de pular abertura/créditos e próximo episódio a partir dos capítulos identificados do arquivo, com fade de 280 ms sobre o vídeo em janela e tela cheia.
+- Créditos seguidos de outro capítulo oferecem pular até esse trecho, preservando possíveis cenas extras; capítulos genéricos não geram marcações por suposição.
+- Volume salvo como preferência global e restaurado antes de iniciar cada reprodução, inclusive após trocar de episódio ou reabrir o aplicativo.
+- Lista de episódios e cabeçalho do player exibem o título identificado e a numeração; o nome original permanece disponível ao passar o mouse.
+
 ## 0.1.5 — controles sobre o vídeo em tela cheia
 
 - A imagem mantém o mesmo tamanho e enquadramento quando os controles aparecem ou desaparecem no fullscreen.

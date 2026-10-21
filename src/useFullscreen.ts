@@ -50,8 +50,11 @@ export default function useFullscreen(onError: (message: string) => void) {
           if (payload.key === "Escape") void change(false);
           if (
             payload.key === "KeyS" &&
-            !document.activeElement?.closest(
-              "input,select,textarea,[contenteditable=true]",
+            !(
+              document.hasFocus() &&
+              document.activeElement?.closest(
+                "input,select,textarea,[contenteditable=true]",
+              )
             ) &&
             !document.querySelector("dialog[open]")
           )

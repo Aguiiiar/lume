@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   ArrowLeft,
@@ -15,6 +15,8 @@ import {
 import { episodeLabel, time, type Media } from "./model";
 import { trackLabel } from "./tracks";
 import type { Snapshot } from "./Player";
+import { chapterCue } from "./chapters";
+import ChapterCue from "./ChapterCue";
 export interface PlayerControlsProps {
   media: Media;
   state: Snapshot;
@@ -27,6 +29,7 @@ export interface PlayerControlsProps {
   onToggleFullscreen: () => void;
   control: (action: string, value?: unknown) => void;
   children?: ReactNode;
+  showCue?: boolean;
 }
 export default function PlayerControls({
   media,
@@ -40,7 +43,17 @@ export default function PlayerControls({
   onToggleFullscreen,
   control,
   children,
+  showCue = false,
 }: PlayerControlsProps) {
+  const footer = useRef<HTMLElement>(null);
+  const [footerHeight, setFooterHeight] = useState(150);
+  useEffect(() => {
+    const observer = new ResizeObserver(() =>
+      setFooterHeight(footer.current?.getBoundingClientRect().height ?? 150),
+    );
+    if (footer.current) observer.observe(footer.current);
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
       <header className="player-header" inert={!visible}>
@@ -53,15 +66,34 @@ export default function PlayerControls({
         </button>
         <div>
           <h2>{media.title}</h2>
-          <span>
-            {episodeLabel(media)} <span className="dot">·</span>{" "}
-            {media.filename}
-          </span>
+          <span title={media.filename}>{episodeLabel(media)}</span>
         </div>
         <span className="local-tag">ARQUIVO LOCAL</span>
       </header>
       {children}
-      <footer className="player-footer" inert={!visible}>
+      {showCue && (
+        <div
+          className="player-cue-anchor"
+          style={{ bottom: footerHeight + 20 }}
+        >
+          <ChapterCue
+            cue={
+              loading || error
+                ? null
+                : chapterCue(
+                    state.chapters ?? [],
+                    state.position,
+                    state.duration,
+                    !!onNext,
+                    state.ended,
+                  )
+            }
+            control={control}
+            onNext={onNext}
+          />
+        </div>
+      )}
+      <footer className="player-footer" ref={footer} inert={!visible}>
         {error && <p className="error-inline">{error}</p>}
         <div className="timeline">
           <span>{time(state.position)}</span>

@@ -38,7 +38,8 @@ export default function usePlayerOverlay(
           ({ payload }) => {
             if (
               payload.id !== latest.current.media.id ||
-              !latest.current.fullscreen
+              latest.current.loading ||
+              !!latest.current.error
             )
               return;
             if (payload.action === "editing") editing.current = !!payload.value;
@@ -60,7 +61,7 @@ export default function usePlayerOverlay(
   }, []);
   useEffect(() => {
     editing.current = false;
-    void invoke("player_overlay", { enabled: value.fullscreen })
+    void invoke("player_overlay", { enabled: !value.loading && !value.error })
       .then(() =>
         emitTo("player-overlay", "player-overlay-state", latest.current),
       )
@@ -72,9 +73,9 @@ export default function usePlayerOverlay(
             .setFullscreen(false)
             .catch(() => {});
       });
-  }, [value.fullscreen]);
+  }, [value.fullscreen, value.loading, !!value.error]);
   useEffect(() => {
-    if (value.fullscreen)
+    if (!value.loading)
       void emitTo("player-overlay", "player-overlay-state", value);
   }, [value]);
   return editing;

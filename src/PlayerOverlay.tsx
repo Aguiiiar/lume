@@ -3,6 +3,8 @@ import { emitTo, listen } from "@tauri-apps/api/event";
 import PlayerControls from "./PlayerControls";
 import usePlayerChrome from "./usePlayerChrome";
 import type { OverlayState } from "./usePlayerOverlay";
+import { chapterCue } from "./chapters";
+import ChapterCue from "./ChapterCue";
 
 export default function PlayerOverlay() {
   const [value, setValue] = useState<OverlayState>();
@@ -23,16 +25,14 @@ export default function PlayerOverlay() {
       cleanup?.();
     };
   }, []);
-  return value?.fullscreen ? (
-    <Controls key={value.media.id} value={value} />
-  ) : null;
+  return value ? <Controls key={value.media.id} value={value} /> : null;
 }
 
 function Controls({ value }: { value: OverlayState }) {
-  const { media, state, loading, error, hasNext } = value;
+  const { media, state, loading, error, hasNext, fullscreen } = value;
   const chrome = usePlayerChrome(
     media.id,
-    true,
+    fullscreen,
     loading || !!error || state.paused || state.ended,
   );
   const action = (name: string, value: unknown = null) => {
@@ -69,7 +69,7 @@ function Controls({ value }: { value: OverlayState }) {
   }, []);
   return (
     <div
-      className={`player-page is-fullscreen player-overlay${chrome.visible ? "" : " controls-hidden"}`}
+      className={`player-page player-overlay${fullscreen ? " is-fullscreen" : ""}${chrome.visible ? "" : " controls-hidden"}`}
       onFocusCapture={(e) => {
         const editing = !!(e.target as HTMLElement).closest(
           "input,select,textarea",
@@ -114,18 +114,37 @@ function Controls({ value }: { value: OverlayState }) {
           else if (e.detail === 2) action("fullscreen");
         }}
       />
-      <PlayerControls
-        media={media}
-        state={state}
-        loading={loading}
-        error={error}
-        fullscreen
-        visible={chrome.visible}
-        close={() => action("close")}
-        onNext={hasNext ? () => action("next") : undefined}
-        onToggleFullscreen={() => action("fullscreen")}
-        control={action}
-      />
+      {fullscreen ? (
+        <PlayerControls
+          media={media}
+          state={state}
+          loading={loading}
+          error={error}
+          fullscreen
+          visible={chrome.visible}
+          close={() => action("close")}
+          onNext={hasNext ? () => action("next") : undefined}
+          onToggleFullscreen={() => action("fullscreen")}
+          control={action}
+          showCue
+        />
+      ) : (
+        <ChapterCue
+          cue={
+            loading || error
+              ? null
+              : chapterCue(
+                  state.chapters ?? [],
+                  state.position,
+                  state.duration,
+                  hasNext,
+                  state.ended,
+                )
+          }
+          control={action}
+          onNext={hasNext ? () => action("next") : undefined}
+        />
+      )}
     </div>
   );
 }

@@ -1806,6 +1806,54 @@ svg {
      double clicks and cursor hiding stay consistent across WebView2 versions. */
   background: rgb(0 0 0 / 0.004);
 }
+.player-cue-anchor {
+  position: absolute;
+  right: 32px;
+  z-index: 3;
+  pointer-events: none;
+}
+.player-cue {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 3;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 280ms ease, transform 280ms ease;
+  pointer-events: none;
+}
+.player-cue-anchor .player-cue {
+  right: 0;
+  bottom: 0;
+}
+.player-cue.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.chapter-cue-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 1px solid #ffffff45;
+  background: #181816e8;
+  color: #fff9ef;
+  box-shadow: 0 4px 20px #0005;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.player-cue.is-visible .chapter-cue-button {
+  pointer-events: auto;
+}
+.chapter-cue-button:hover {
+  background: #36322beb;
+  border-color: var(--accent);
+}
 .player-overlay .player-header,
 .player-overlay .player-footer {
   pointer-events: auto;
@@ -1822,7 +1870,9 @@ svg {
 }
 @media (prefers-reduced-motion: reduce) {
   .player-header,
-  .player-footer {
+  .player-footer,
+  .player-cue,
+  .chapter-cue-button {
     transition-duration: 0ms;
   }
 }

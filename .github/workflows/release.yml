@@ -53,7 +53,7 @@ jobs:
         run: |
           $previous = "$env:RUNNER_TEMP\lume-previous"
           New-Item -ItemType Directory -Path $previous -Force | Out-Null
-          gh release download v0.1.4 --repo Aguiiiar/lume --pattern '*-setup.exe' --pattern SHA256SUMS.txt --dir $previous
+          gh release download v0.1.5 --repo Aguiiiar/lume --pattern '*-setup.exe' --pattern SHA256SUMS.txt --dir $previous
           if ($LASTEXITCODE -ne 0) { throw 'Não foi possível baixar a versão anterior' }
           $old = Get-ChildItem $previous -Filter '*-setup.exe' | Select-Object -First 1
           $expected = ((Get-Content "$previous\SHA256SUMS.txt" | Where-Object { $_.EndsWith($old.Name) }) -split '  ')[0]

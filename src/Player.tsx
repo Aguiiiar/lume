@@ -8,6 +8,7 @@ import usePlayerChrome from "./usePlayerChrome";
 import PlayerControls from "./PlayerControls";
 import usePlayerOverlay from "./usePlayerOverlay";
 import { type Track } from "./tracks";
+import type { Chapter } from "./chapters";
 export interface Snapshot {
   id: number;
   position: number;
@@ -15,6 +16,7 @@ export interface Snapshot {
   paused: boolean;
   volume: number;
   tracks: Track[];
+  chapters: Chapter[];
   aid: number | string;
   sid: number | string;
   ended: boolean;
@@ -45,6 +47,7 @@ export default function Player({
     paused: false,
     volume: 100,
     tracks: [],
+    chapters: [],
     aid: "no",
     sid: "no",
     ended: false,
@@ -168,9 +171,10 @@ export default function Player({
     ];
     const editing = () =>
       overlayEditing.current ||
-      !!document.activeElement?.closest(
-        "input,select,textarea,[contenteditable=true]",
-      ) ||
+      (document.hasFocus() &&
+        !!document.activeElement?.closest(
+          "input,select,textarea,[contenteditable=true]",
+        )) ||
       !!document.querySelector("dialog[open]");
     const handler = (e: KeyboardEvent) => {
       if (!editing() && playbackKeys.includes(e.code)) e.preventDefault();

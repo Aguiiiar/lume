@@ -43,6 +43,9 @@ Você pode pular etapas e reabrir o assistente em **Configurações → Abrir as
 - Clique no vídeo para pausar/continuar; duplo clique alterna a tela cheia. As dicas de atalhos ficam nesta documentação, sem faixa fixa no player.
 - Os seletores mostram nomes de idiomas em português. `por` sem indicação regional aparece como **Português**; **Português (Brasil)** e **Português (Portugal)** são mostrados quando há indicação nos metadados ou no sufixo da legenda externa.
 - Na reprodução em tela cheia, os controles desaparecem suavemente após 3 segundos sem movimento e voltam ao mover o mouse. Ao pausar ou interagir com os controles, eles permanecem visíveis.
+- O volume escolhido é salvo globalmente e restaurado no próximo episódio e ao reabrir o aplicativo.
+- Quando o arquivo traz capítulos com nomes reconhecidos como `OP`, `Opening`, `Abertura`, `ED` ou `Créditos`, os botões de pular aparecem sobre o vídeo com fade, em janela e tela cheia. Eles não fazem análise automática de imagem/áudio: arquivos sem capítulos descritivos continuam com os controles comuns. Qualquer capítulo depois dos créditos é preservado como possível conteúdo extra. Não há avanço automático.
+- O título e a numeração dos episódios aparecem sem os sufixos técnicos do arquivo; o nome original pode ser consultado ao passar o mouse.
 
 O Lume não move, renomeia ou apaga os vídeos. Use **Atualizar biblioteca** depois de adicionar arquivos às pastas. Arquivos indisponíveis mantêm seu histórico no catálogo.
 

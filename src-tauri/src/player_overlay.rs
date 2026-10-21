@@ -23,9 +23,6 @@ pub fn set(app: &AppHandle, enabled: bool) -> Result<()> {
     let main = app
         .get_webview_window("main")
         .ok_or("Janela indisponível")?;
-    if !main.is_fullscreen().map_err(|e| e.to_string())? {
-        return Ok(());
-    }
     let overlay = if let Some(overlay) = app.get_webview_window(LABEL) {
         overlay
     } else {
@@ -46,35 +43,52 @@ pub fn set(app: &AppHandle, enabled: bool) -> Result<()> {
         let builder = builder.owner(&main).map_err(|e| e.to_string())?;
         builder.build().map_err(|e| e.to_string())?
     };
-    if ENABLED.load(Ordering::SeqCst) && main.is_fullscreen().map_err(|e| e.to_string())? {
-        overlay
-            .set_position(main.inner_position().map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-        overlay
-            .set_size(main.inner_size().map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
+    if ENABLED.load(Ordering::SeqCst) {
+        place(app, &overlay)?;
         overlay.show().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
-pub fn sync(app: &AppHandle) {
-    if !ENABLED.load(Ordering::SeqCst) {
-        return;
+fn place(app: &AppHandle, overlay: &tauri::WebviewWindow) -> Result<()> {
+    let main = app
+        .get_webview_window("main")
+        .ok_or("Janela indisponível")?;
+    let origin = main.inner_position().map_err(|e| e.to_string())?;
+    if main.is_fullscreen().map_err(|e| e.to_string())? {
+        overlay.set_position(origin).map_err(|e| e.to_string())?;
+        overlay
+            .set_size(main.inner_size().map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    } else {
+        let rect = app
+            .state::<crate::AppState>()
+            .player
+            .lock()
+            .map_err(|e| e.to_string())?
+            .rect
+            .ok_or("Área do vídeo indisponível")?;
+        let scale = main.scale_factor().map_err(|e| e.to_string())?;
+        overlay
+            .set_position(tauri::PhysicalPosition::new(
+                origin.x + (rect.x as f64 * scale).round() as i32,
+                origin.y + (rect.y as f64 * scale).round() as i32,
+            ))
+            .map_err(|e| e.to_string())?;
+        overlay
+            .set_size(tauri::PhysicalSize::new(
+                (rect.width as f64 * scale).max(1.0).round() as u32,
+                (rect.height as f64 * scale).max(1.0).round() as u32,
+            ))
+            .map_err(|e| e.to_string())?;
     }
-    if let (Some(main), Some(overlay)) = (
-        app.get_webview_window("main"),
-        app.get_webview_window(LABEL),
-    ) {
-        if main.is_fullscreen().unwrap_or(false) {
-            if let Ok(position) = main.inner_position() {
-                let _ = overlay.set_position(position);
-            }
-            if let Ok(size) = main.inner_size() {
-                let _ = overlay.set_size(size);
-            }
-        } else {
-            let _ = overlay.hide();
+    Ok(())
+}
+
+pub fn sync(app: &AppHandle) {
+    if ENABLED.load(Ordering::SeqCst) {
+        if let Some(overlay) = app.get_webview_window(LABEL) {
+            let _ = place(app, &overlay);
         }
     }
 }

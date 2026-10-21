@@ -18,6 +18,7 @@ pub struct Player {
     pub child: Option<Child>,
     pub writer: Option<File>,
     pub surface: isize,
+    pub rect: Option<Rect>,
     pub session: u64,
     pub current: Option<(PathBuf, Snapshot)>,
 }
@@ -31,10 +32,16 @@ pub struct Snapshot {
     pub paused: bool,
     pub volume: f64,
     pub tracks: Value,
+    pub chapters: Vec<Chapter>,
     pub aid: Value,
     pub sid: Value,
     pub ended: bool,
     pub error: Option<String>,
+}
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Chapter {
+    pub time: f64,
+    pub title: Option<String>,
 }
 #[derive(Deserialize, Clone, Copy)]
 pub struct Rect {
@@ -90,9 +97,11 @@ pub fn surface(app: &AppHandle, shared: Shared, rect: Rect) -> Result<isize> {
         let parent = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
         let scale = window.scale_factor().map_err(|e| e.to_string())?;
         let (tx, rx) = std::sync::mpsc::channel();
+        let overlay_app = app.clone();
         app.run_on_main_thread(move || {
             let result = (|| {
                 let mut player = shared.lock().map_err(|e| e.to_string())?;
+                player.rect = Some(rect);
                 unsafe {
                     if player.surface == 0 {
                         let class: Vec<u16> = "Static\0".encode_utf16().collect();
@@ -127,6 +136,7 @@ pub fn surface(app: &AppHandle, shared: Shared, rect: Rect) -> Result<isize> {
                 }
                 Ok(player.surface)
             })();
+            crate::player_overlay::sync(&overlay_app);
             let _ = tx.send(result);
         })
         .map_err(|e| e.to_string())?;
@@ -241,6 +251,7 @@ pub fn start(
     };
     let pipe = format!(r"\\.\pipe\lume-{}-{}", std::process::id(), session);
     let c = library::db(&db_path)?;
+    let volume = library::player_volume(&db_path)?;
     let position = if restart {
         0.0
     } else {
@@ -272,6 +283,7 @@ pub fn start(
         .arg(format!("--wid={handle}"))
         .arg(format!("--input-ipc-server={pipe}"))
         .arg(format!("--start={position}"))
+        .arg(format!("--volume={volume}"))
         .arg("--")
         .arg(&file)
         .stdin(Stdio::null())
@@ -329,6 +341,7 @@ pub fn start(
         "aid",
         "sid",
         "eof-reached",
+        "chapter-list",
     ]
     .iter()
     .enumerate()
@@ -344,7 +357,7 @@ pub fn start(
         Snapshot {
             id,
             position,
-            volume: 100.0,
+            volume,
             tracks: json!([]),
             ..Default::default()
         },
@@ -353,7 +366,7 @@ pub fn start(
         let mut snap = Snapshot {
             id,
             position,
-            volume: 100.0,
+            volume,
             tracks: json!([]),
             ..Default::default()
         };
@@ -380,6 +393,9 @@ pub fn start(
                     "pause" => snap.paused = d.as_bool().unwrap_or(false),
                     "volume" => snap.volume = d.as_f64().unwrap_or(100.0),
                     "track-list" => snap.tracks = d.clone(),
+                    "chapter-list" => {
+                        snap.chapters = serde_json::from_value(d.clone()).unwrap_or_default()
+                    }
                     "aid" => snap.aid = d.clone(),
                     "sid" => snap.sid = d.clone(),
                     "eof-reached" => {
@@ -446,14 +462,22 @@ pub fn control(shared: &Shared, action: &str, value: Value) -> Result<()> {
                 "absolute+exact"
             ]),
         ),
-        "volume" => send(
-            shared,
-            json!([
-                "set_property",
-                "volume",
-                value.as_f64().ok_or("Volume inválido")?.clamp(0.0, 100.0)
-            ]),
-        ),
+        "volume" => {
+            let volume = value
+                .as_f64()
+                .filter(|v| v.is_finite())
+                .ok_or("Volume inválido")?
+                .clamp(0.0, 100.0);
+            let db = shared
+                .lock()
+                .map_err(|e| e.to_string())?
+                .current
+                .as_ref()
+                .map(|(path, _)| path.clone())
+                .ok_or("O player ainda não está conectado.")?;
+            send(shared, json!(["set_property", "volume", volume]))?;
+            library::save_player_volume(&db, volume)
+        }
         "audio" | "subtitle" => {
             let v = if value == "no" {
                 json!("no")

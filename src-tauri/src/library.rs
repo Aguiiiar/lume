@@ -122,6 +122,19 @@ pub fn save_setting(path: &Path, key: &str, value: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn player_volume(path: &Path) -> Result<f64> {
+    Ok(setting(&db(path)?, "player_volume")
+        .and_then(|v| v.parse::<f64>().ok())
+        .filter(|v| v.is_finite())
+        .map(|v| v.clamp(0.0, 100.0))
+        .unwrap_or(100.0))
+}
+pub fn save_player_volume(path: &Path, volume: f64) -> Result<()> {
+    if !volume.is_finite() {
+        return Err("Volume inválido".into());
+    }
+    save_setting(path, "player_volume", &volume.clamp(0.0, 100.0).to_string())
+}
 fn clean(s: &str) -> String {
     let s = s.replace(['.', '_'], " ");
     s.trim_matches(|c: char| c.is_whitespace() || c == '-' || c == '[' || c == ']')
@@ -335,6 +348,18 @@ mod tests {
     use super::*;
     #[test]
     fn standard_episodes() {
+        let hannibal = identify(Path::new(
+            "Hannibal.S01E08.720p.WEB-DL.x264.DUAL-WWW.BLUDV.COM.mkv",
+        ));
+        assert_eq!(
+            (
+                hannibal.title.as_str(),
+                hannibal.kind.as_str(),
+                hannibal.season,
+                hannibal.episode
+            ),
+            ("Hannibal", "series", Some(1), Some(8))
+        );
         let x = identify(Path::new("Séries/Dark/Temporada 01/Dark.S01E03.1080p.mkv"));
         assert_eq!(
             (x.title.as_str(), x.season, x.episode, x.review),
@@ -357,6 +382,23 @@ mod tests {
     #[test]
     fn ambiguous_file_needs_review() {
         assert!(identify(Path::new("Videos/Arquivo estranho.mkv")).review);
+    }
+    #[test]
+    fn volume_persists_between_sessions_including_silence() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("library.sqlite");
+        assert_eq!(player_volume(&path).unwrap(), 100.0);
+        save_player_volume(&path, 37.0).unwrap();
+        assert_eq!(player_volume(&path).unwrap(), 37.0);
+        save_player_volume(&path, 0.0).unwrap();
+        assert_eq!(player_volume(&path).unwrap(), 0.0);
+        save_player_volume(&path, 300.0).unwrap();
+        assert_eq!(player_volume(&path).unwrap(), 100.0);
+        assert!(save_player_volume(&path, f64::NAN).is_err());
+        save_setting(&path, "player_volume", "NaN").unwrap();
+        assert_eq!(player_volume(&path).unwrap(), 100.0);
+        save_setting(&path, "player_volume", "invalid").unwrap();
+        assert_eq!(player_volume(&path).unwrap(), 100.0);
     }
     #[test]
     fn rescans_preserve_history_and_corrections() {

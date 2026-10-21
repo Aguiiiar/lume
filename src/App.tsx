@@ -504,7 +504,7 @@ export default function App() {
             <span>Configurações</span>
           </button>
           <div className="sidebar-version">
-            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.5"}</span>
+            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.6"}</span>
           </div>
         </div>
       </aside>
@@ -1233,7 +1233,7 @@ export default function App() {
                       Um espaço para as suas histórias.
                       <br />
                       <span>
-                        Versão {runtime?.version ?? "0.1.5"} · Windows ·
+                        Versão {runtime?.version ?? "0.1.6"} · Windows ·
                         Biblioteca local
                       </span>
                     </p>
@@ -1347,7 +1347,7 @@ export default function App() {
                   >
                     <button
                       className="episode-play"
-                      title={`Reproduzir ${m.filename}`}
+                      title={`Reproduzir ${m.title} · ${episodeLabel(m)}`}
                       disabled={m.missing}
                       onClick={() => play(m)}
                     >
@@ -1359,7 +1359,7 @@ export default function App() {
                     </button>
                     <div className="episode-copy">
                       <strong>{episodeLabel(m)}</strong>
-                      <span title={m.filename}>{m.filename}</span>
+                      <span title={m.filename}>{m.title}</span>
                       {m.position > 0 && !m.watched && (
                         <small>Continuar em {time(m.position)}</small>
                       )}
