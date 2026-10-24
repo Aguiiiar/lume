@@ -62,6 +62,7 @@ pub fn db(path: &Path) -> Result<Connection> {
     c.execute_batch("PRAGMA journal_mode=WAL;
         CREATE TABLE IF NOT EXISTS folders(path TEXT PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS media_excluded(path TEXT PRIMARY KEY, root TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS media(
           id INTEGER PRIMARY KEY, root TEXT NOT NULL, path TEXT UNIQUE NOT NULL, filename TEXT NOT NULL,
           title TEXT NOT NULL, kind TEXT NOT NULL, season INTEGER, episode INTEGER,
@@ -73,7 +74,7 @@ pub fn db(path: &Path) -> Result<Connection> {
 pub fn load(path: &Path) -> Result<Library> {
     let c = db(path)?;
     let mut q = c.prepare("SELECT id,root,path,filename,title,kind,season,episode,position,duration,watched,updated,missing,review,manual FROM media ORDER BY title COLLATE NOCASE,season,episode,filename").map_err(|e| e.to_string())?;
-    let media = q
+    let mut media = q
         .query_map([], |r| {
             Ok(Media {
                 id: r.get(0)?,
@@ -96,6 +97,17 @@ pub fn load(path: &Path) -> Result<Library> {
         .map_err(|e| e.to_string())?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
+    for item in &mut media {
+        let missing = !Path::new(&item.path).is_file();
+        if item.missing != missing {
+            c.execute(
+                "UPDATE media SET missing=?1 WHERE id=?2",
+                params![missing, item.id],
+            )
+            .map_err(|e| e.to_string())?;
+            item.missing = missing;
+        }
+    }
     let mut q = c
         .prepare("SELECT path FROM folders ORDER BY path")
         .map_err(|e| e.to_string())?;
@@ -284,6 +296,16 @@ pub fn scan(db_path: &Path, root: &str) -> Result<ScanReport> {
             .map_err(|e| e.to_string())?;
     }
     for p in &entries {
+        let excluded: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM media_excluded WHERE path=?1)",
+                [p.to_string_lossy().as_ref()],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if excluded {
+            continue;
+        }
         let id = identify(p);
         tx.execute("INSERT INTO media(root,path,filename,title,kind,season,episode,review) VALUES(?1,?2,?3,?4,?5,?6,?7,?8)
           ON CONFLICT(path) DO UPDATE SET missing=0, title=CASE WHEN manual THEN title ELSE excluded.title END,
@@ -335,17 +357,92 @@ pub fn mark(db_path: &Path, id: i64, watched: bool) -> Result<()> {
     Ok(())
 }
 pub fn path_for(db_path: &Path, id: i64) -> Result<PathBuf> {
-    db(db_path)?
+    let c = db(db_path)?;
+    let path = c
         .query_row("SELECT path FROM media WHERE id=?1", [id], |r| {
             r.get::<_, String>(0)
         })
         .map(PathBuf::from)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let missing = !path.is_file();
+    c.execute(
+        "UPDATE media SET missing=?1 WHERE id=?2",
+        params![missing, id],
+    )
+    .map_err(|e| e.to_string())?;
+    if missing {
+        return Err(format!("Arquivo não encontrado: {}. Ele pode ter sido movido, apagado ou o disco desconectado. Você pode remover este item do catálogo; seu histórico foi preservado.", path.display()));
+    }
+    Ok(path)
+}
+
+pub fn remove(db_path: &Path, ids: Vec<i64>) -> Result<()> {
+    let mut c = db(db_path)?;
+    let tx = c.transaction().map_err(|e| e.to_string())?;
+    for id in ids {
+        tx.execute("INSERT OR IGNORE INTO media_excluded(path,root) SELECT path,root FROM media WHERE id=?1", [id]).map_err(|e| e.to_string())?;
+        tx.execute("DELETE FROM media WHERE id=?1", [id])
+            .map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())
+}
+
+pub fn restore_excluded(db_path: &Path, root: &str) -> Result<()> {
+    let root = std::fs::canonicalize(root).map_err(|e| e.to_string())?;
+    db(db_path)?
+        .execute(
+            "DELETE FROM media_excluded WHERE root=?1",
+            [root.to_string_lossy().as_ref()],
+        )
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn availability_preserves_history_and_recovers_without_rescan() {
+        let temp = tempfile::tempdir().unwrap();
+        let folder = temp.path().join("Show");
+        std::fs::create_dir(&folder).unwrap();
+        let file = folder.join("Show.S01E01.mkv");
+        std::fs::write(&file, b"test").unwrap();
+        let dbfile = temp.path().join("library.db");
+        scan(&dbfile, folder.to_str().unwrap()).unwrap();
+        let id = load(&dbfile).unwrap().media[0].id;
+        progress(&dbfile, id, 2100.0, 3000.0).unwrap();
+        std::fs::remove_file(&file).unwrap();
+        assert!(path_for(&dbfile, id)
+            .unwrap_err()
+            .contains("Arquivo não encontrado"));
+        let item = load(&dbfile).unwrap().media.remove(0);
+        assert!(item.missing);
+        assert_eq!(item.position, 2100.0);
+        std::fs::write(&file, b"test").unwrap();
+        assert!(!load(&dbfile).unwrap().media[0].missing);
+        std::fs::remove_dir_all(&folder).unwrap();
+        assert!(scan(&dbfile, folder.to_str().unwrap()).is_err());
+        assert!(load(&dbfile).unwrap().media[0].missing);
+    }
+    #[test]
+    fn catalog_removal_keeps_files_and_stays_removed_until_readding() {
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("Show.S01E01.mkv");
+        std::fs::write(&file, b"video").unwrap();
+        let dbfile = temp.path().join("library.db");
+        let root = temp.path().to_str().unwrap();
+        scan(&dbfile, root).unwrap();
+        let id = load(&dbfile).unwrap().media[0].id;
+        progress(&dbfile, id, 2100.0, 3000.0).unwrap();
+        remove(&dbfile, vec![id]).unwrap();
+        assert!(file.is_file());
+        scan(&dbfile, root).unwrap();
+        assert!(load(&dbfile).unwrap().media.is_empty());
+        restore_excluded(&dbfile, root).unwrap();
+        scan(&dbfile, root).unwrap();
+        assert_eq!(load(&dbfile).unwrap().media[0].position, 0.0);
+    }
     #[test]
     fn standard_episodes() {
         let hannibal = identify(Path::new(

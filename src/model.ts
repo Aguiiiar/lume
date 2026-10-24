@@ -33,15 +33,58 @@ export const kindLabel: Record<Kind, string> = {
   series: "Série",
   anime: "Anime",
 };
+function folderCollection(item: Media) {
+  const normalize = (p: string) =>
+    p
+      .replace(/^\\\\\?\\/, "")
+      .replace(/\\/g, "/")
+      .replace(/\/+$/, "");
+  const root = normalize(item.root);
+  const parent = normalize(item.path).split("/").slice(0, -1).join("/");
+  const wrapper = (name: string) =>
+    /^(?:(?:season|temporada|temp|s)[ ._-]*\d+|\d+[ªºa]?\s*temporada|(?:e|ep(?:is[oó]dio)?)[ ._-]*\d+)$/i.test(
+      name,
+    ) || /(?:s\d{1,3}[ ._-]*e\d{1,4}|\b\d{1,3}x\d{1,4}\b)/i.test(name);
+  const generic =
+    /^(?:[a-z]:|biblioteca|library|v[ií]deos?|downloads?|filmes?|movies?|s[eé]ries?|shows?|animes?|tv|media|m[ií]dia)$/i;
+  let anchor = root;
+  if (parent.toLowerCase().startsWith(root.toLowerCase() + "/")) {
+    const first = parent.slice(root.length + 1).split("/")[0];
+    if (!wrapper(first)) anchor += "/" + first;
+  }
+  while (wrapper(anchor.split("/").at(-1) ?? ""))
+    anchor = anchor.split("/").slice(0, -1).join("/");
+  const name = anchor.split("/").at(-1) ?? "";
+  if (!name || generic.test(name)) return null;
+  const title =
+    name
+      .replace(/\{[^}]*\}|\[[^\]]*\]/g, " ")
+      .replace(/[._]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(
+        /\s+(?:-\s*)?(?:\d{1,3}[ªºa]?\s*(?:temporada|season)|s\d{1,3}\b|(?:19|20)\d{2}\b|(?:720|1080|2160)p\b|WEB[- .]?DL\b|BluRay\b|x26[45]\b).*$/i,
+        "",
+      )
+      .trim() || item.title;
+  return { key: anchor.toLocaleLowerCase("pt-BR"), title };
+}
 export function collections(items: Media[]): Collection[] {
   const map = new Map<string, Collection>();
   for (const item of items) {
+    const folder = folderCollection(item);
     const key =
       item.kind === "movie"
         ? `movie:${item.id}`
-        : `${item.kind}:${item.title.toLocaleLowerCase("pt-BR")}`;
+        : `${item.kind}:${folder?.key ?? `root:${item.root.toLocaleLowerCase("pt-BR")}:title:${item.title.toLocaleLowerCase("pt-BR")}`}`;
     if (!map.has(key))
-      map.set(key, { key, title: item.title, kind: item.kind, items: [] });
+      map.set(key, {
+        key,
+        title: item.manual ? item.title : (folder?.title ?? item.title),
+        kind: item.kind,
+        items: [],
+      });
+    if (item.manual) map.get(key)!.title = item.title;
     map.get(key)!.items.push(item);
   }
   for (const group of map.values())

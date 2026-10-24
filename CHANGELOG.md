@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## 0.1.7 — agrupamento por pasta e arquivos indisponíveis
+
+- Séries e animes agrupados pela pasta da obra, incluindo subpastas de temporada e episódio, independentemente de traduções e variações nos nomes dos arquivos.
+- Títulos das pastas com metadados de lançamento são simplificados; correções manuais são preservadas.
+- Arquivos ausentes mantêm o histórico e exibem seu caminho. A disponibilidade é verificada ao carregar o catálogo e antes da reprodução, com aviso claro quando o arquivo desaparece.
+- Remoção individual ou da coleção inteira, com confirmação, sem apagar vídeos ou legendas do disco. Atualizar a biblioteca respeita as remoções; adicionar a pasta novamente recupera os itens sem o histórico apagado.
+- Atualização da biblioteca continua nas demais pastas quando uma origem está indisponível.
+
 ## 0.1.6 — capítulos, volume e nomes dos episódios
 
 - Botões de pular abertura/créditos e próximo episódio a partir dos capítulos identificados do arquivo, com fade de 280 ms sobre o vídeo em janela e tela cheia.

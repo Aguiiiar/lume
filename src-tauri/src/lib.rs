@@ -124,11 +124,17 @@ async fn library_load(state: State<'_, AppState>) -> library::Result<library::Li
 async fn folder_scan(
     state: State<'_, AppState>,
     path: String,
+    restore_removed: Option<bool>,
 ) -> library::Result<library::ScanReport> {
     let db = state.db.clone();
-    tauri::async_runtime::spawn_blocking(move || library::scan(&db, &path))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        if restore_removed.unwrap_or(false) {
+            library::restore_excluded(&db, &path)?;
+        }
+        library::scan(&db, &path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 async fn media_edit(state: State<'_, AppState>, items: Vec<library::Edit>) -> library::Result<()> {
@@ -140,6 +146,17 @@ async fn media_edit(state: State<'_, AppState>, items: Vec<library::Edit>) -> li
 #[tauri::command]
 fn media_mark(state: State<'_, AppState>, id: i64, watched: bool) -> library::Result<()> {
     library::mark(&state.db, id, watched)
+}
+#[tauri::command]
+async fn media_check(state: State<'_, AppState>, id: i64) -> library::Result<()> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || library::path_for(&db, id).map(|_| ()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+fn media_remove(state: State<'_, AppState>, ids: Vec<i64>) -> library::Result<()> {
+    library::remove(&state.db, ids)
 }
 #[tauri::command]
 fn folder_remove(state: State<'_, AppState>, path: String) -> library::Result<()> {
@@ -271,6 +288,8 @@ pub fn run() {
             folder_scan,
             media_edit,
             media_mark,
+            media_check,
+            media_remove,
             folder_remove,
             mpv_status,
             mpv_configure,

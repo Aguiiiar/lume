@@ -147,6 +147,7 @@ export default function App() {
     [detail, setDetail] = useState<Collection | null>(null),
     [edit, setEdit] = useState<Media[] | null>(null),
     [remove, setRemove] = useState<string | null>(null),
+    [removeMedia, setRemoveMedia] = useState<Media[] | null>(null),
     [selected, setSelected] = useState<Set<number>>(new Set()),
     [active, setActive] = useState<{ media: Media; restart: boolean } | null>(
       null,
@@ -164,6 +165,13 @@ export default function App() {
     if (!desktop) return;
     const data = await invoke<Library>("library_load");
     setLibrary(data);
+    setDetail((current) =>
+      current
+        ? (collections(data.media).find((c) =>
+            c.items.some((m) => current.items.some((old) => old.id === m.id)),
+          ) ?? null)
+        : null,
+    );
     setMpv(await invoke<string | null>("mpv_status"));
   };
   const { fullscreen, toggleFullscreen } = useFullscreen((message) =>
@@ -257,7 +265,7 @@ export default function App() {
       setBusy(true);
       const report = await invoke<{ found: number; warnings: string[] }>(
         "folder_scan",
-        { path: folder },
+        { path: folder, restoreRemoved: true },
       );
       await reload();
       notify(
@@ -280,16 +288,20 @@ export default function App() {
       let total = 0;
       let warnings = 0;
       for (const path of library.folders) {
-        const r = await invoke<{ found: number; warnings: string[] }>(
-          "folder_scan",
-          { path },
-        );
-        total += r.found;
-        warnings += r.warnings.length;
+        try {
+          const r = await invoke<{ found: number; warnings: string[] }>(
+            "folder_scan",
+            { path },
+          );
+          total += r.found;
+          warnings += r.warnings.length;
+        } catch {
+          warnings++;
+        }
       }
       await reload();
       notify(
-        `Biblioteca atualizada: ${total} arquivos.${warnings ? ` ${warnings} erro(s) de acesso. Verifique as permissões das pastas.` : ""}`,
+        `Biblioteca atualizada: ${total} arquivos.${warnings ? ` ${warnings} pasta(s) indisponível(is) ou sem permissão. Arquivos ausentes mantêm o histórico e podem ser removidos do catálogo.` : ""}`,
         warnings > 0,
       );
     } catch (e) {
@@ -302,18 +314,20 @@ export default function App() {
     setSeason("all");
     setDetail(c);
   };
-  const play = (m: Media, restart = false) => {
+  const play = async (m: Media, restart = false) => {
     if (demo) {
       notify(
         "Os títulos da demonstração são fictícios. Adicione seus vídeos para reproduzir.",
       );
       return;
     }
-    if (m.missing) {
-      notify(
-        "Arquivo indisponível. Verifique se o disco está conectado.",
-        true,
-      );
+    try {
+      await invoke("media_check", { id: m.id });
+    } catch (e) {
+      setDetail(null);
+      setActive(null);
+      await reload();
+      notify(String(e), true);
       return;
     }
     if (!mpv) {
@@ -423,9 +437,7 @@ export default function App() {
           setActive(null);
           void reload().catch((e) => notify(String(e), true));
         }}
-        onNext={
-          next ? () => setActive({ media: next, restart: false }) : undefined
-        }
+        onNext={next ? () => void play(next) : undefined}
       />
     );
   }
@@ -504,7 +516,7 @@ export default function App() {
             <span>Configurações</span>
           </button>
           <div className="sidebar-version">
-            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.6"}</span>
+            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.7"}</span>
           </div>
         </div>
       </aside>
@@ -1233,7 +1245,7 @@ export default function App() {
                       Um espaço para as suas histórias.
                       <br />
                       <span>
-                        Versão {runtime?.version ?? "0.1.6"} · Windows ·
+                        Versão {runtime?.version ?? "0.1.7"} · Windows ·
                         Biblioteca local
                       </span>
                     </p>
@@ -1336,6 +1348,16 @@ export default function App() {
               >
                 <Pencil size={17} />
               </button>
+              <button
+                className="icon-btn"
+                title="Remover coleção do catálogo"
+                onClick={() => {
+                  setRemoveMedia(detail.items);
+                  setDetail(null);
+                }}
+              >
+                <Trash2 size={17} />
+              </button>
             </div>
             <div className="episode-list">
               {detail.items
@@ -1348,7 +1370,7 @@ export default function App() {
                     <button
                       className="episode-play"
                       title={`Reproduzir ${m.title} · ${episodeLabel(m)}`}
-                      disabled={m.missing}
+                      aria-disabled={m.missing}
                       onClick={() => play(m)}
                     >
                       {m.watched ? (
@@ -1364,8 +1386,9 @@ export default function App() {
                         <small>Continuar em {time(m.position)}</small>
                       )}
                       {m.missing && (
-                        <small className="error-inline">
-                          Arquivo indisponível
+                        <small className="error-inline" title={m.path}>
+                          Arquivo não encontrado ·{" "}
+                          {m.path.replace(/^\\\\\?\\/, "")}
                         </small>
                       )}
                     </div>
@@ -1400,6 +1423,16 @@ export default function App() {
                     >
                       <Pencil size={16} />
                     </button>
+                    <button
+                      className="icon-btn"
+                      title="Remover arquivo do catálogo"
+                      onClick={() => {
+                        setRemoveMedia([m]);
+                        setDetail(null);
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
             </div>
@@ -1418,6 +1451,58 @@ export default function App() {
             notify("Identificação salva. Suas correções serão preservadas.");
           }}
         />
+      )}
+      {removeMedia && (
+        <Modal
+          title="Remover do catálogo?"
+          onClose={() => setRemoveMedia(null)}
+        >
+          <div className="modal-body">
+            <p>
+              Remover{" "}
+              {removeMedia.length === 1
+                ? removeMedia[0].filename
+                : `${removeMedia.length} arquivos`}{" "}
+              e seu histórico do catálogo? Os vídeos e legendas continuam no
+              disco.
+            </p>
+            <p>
+              Para recuperar os itens removidos, adicione a pasta novamente.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="button secondary"
+                onClick={() => setRemoveMedia(null)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="button danger"
+                onClick={async () => {
+                  if (demo) {
+                    setRemoveMedia(null);
+                    notify("Esta é uma biblioteca de demonstração.");
+                    return;
+                  }
+                  try {
+                    await invoke("media_remove", {
+                      ids: removeMedia.map((m) => m.id),
+                    });
+                    setRemoveMedia(null);
+                    setSelected(new Set());
+                    await reload();
+                    notify("Itens e histórico removidos do catálogo.");
+                  } catch (e) {
+                    setRemoveMedia(null);
+                    notify(String(e), true);
+                  }
+                }}
+              >
+                Remover do catálogo
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       {remove && (
         <Modal

@@ -47,7 +47,11 @@ Você pode pular etapas e reabrir o assistente em **Configurações → Abrir as
 - Quando o arquivo traz capítulos com nomes reconhecidos como `OP`, `Opening`, `Abertura`, `ED` ou `Créditos`, os botões de pular aparecem sobre o vídeo com fade, em janela e tela cheia. Eles não fazem análise automática de imagem/áudio: arquivos sem capítulos descritivos continuam com os controles comuns. Qualquer capítulo depois dos créditos é preservado como possível conteúdo extra. Não há avanço automático.
 - O título e a numeração dos episódios aparecem sem os sufixos técnicos do arquivo; o nome original pode ser consultado ao passar o mouse.
 
-O Lume não move, renomeia ou apaga os vídeos. Use **Atualizar biblioteca** depois de adicionar arquivos às pastas. Arquivos indisponíveis mantêm seu histórico no catálogo.
+O Lume não move, renomeia ou apaga os vídeos. Use **Atualizar biblioteca** depois de adicionar arquivos às pastas. Arquivos indisponíveis mantêm seu histórico no catálogo, com o caminho indicado e um aviso ao tentar reproduzir.
+
+Séries e animes são agrupados pela pasta da obra, incluindo subpastas de temporada e episódio, mesmo quando os arquivos têm títulos diferentes ou traduzidos. Uma biblioteca geral pode conter uma pasta por obra. Arquivos diretamente em uma pasta genérica, como `Séries`, usam o título identificado como alternativa. Filmes continuam individuais. Correções manuais do título são preservadas.
+
+Na lista de episódios, a lixeira remove um arquivo e seu histórico do catálogo. A lixeira no cabeçalho remove a coleção inteira. A atualização da biblioteca respeita essas remoções. Para recuperar os itens, use **Adicionar pasta** e selecione novamente a pasta de origem.
 
 Exemplo de organização:
 
