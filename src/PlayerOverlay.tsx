@@ -124,6 +124,7 @@ function Controls({ value }: { value: OverlayState }) {
           visible={chrome.visible}
           close={() => action("close")}
           onNext={hasNext ? () => action("next") : undefined}
+          onCompleteNext={hasNext ? () => action("complete-next") : undefined}
           onToggleFullscreen={() => action("fullscreen")}
           control={action}
           showCue
@@ -142,7 +143,7 @@ function Controls({ value }: { value: OverlayState }) {
                 )
           }
           control={action}
-          onNext={hasNext ? () => action("next") : undefined}
+          onNext={hasNext ? () => action("complete-next") : undefined}
         />
       )}
     </div>

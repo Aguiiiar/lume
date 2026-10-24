@@ -26,6 +26,7 @@ export interface PlayerControlsProps {
   visible: boolean;
   close: () => void;
   onNext?: () => void;
+  onCompleteNext?: () => void;
   onToggleFullscreen: () => void;
   control: (action: string, value?: unknown) => void;
   children?: ReactNode;
@@ -40,6 +41,7 @@ export default function PlayerControls({
   visible,
   close,
   onNext,
+  onCompleteNext,
   onToggleFullscreen,
   control,
   children,
@@ -89,7 +91,7 @@ export default function PlayerControls({
                   )
             }
             control={control}
-            onNext={onNext}
+            onNext={onCompleteNext}
           />
         </div>
       )}

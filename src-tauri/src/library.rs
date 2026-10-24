@@ -402,6 +402,21 @@ pub fn restore_excluded(db_path: &Path, root: &str) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn completed_episode_stays_watched_when_final_progress_is_saved() {
+        let temp = tempfile::tempdir().unwrap();
+        let file = temp.path().join("Show.S01E01.mkv");
+        std::fs::write(&file, b"video").unwrap();
+        let dbfile = temp.path().join("library.db");
+        scan(&dbfile, temp.path().to_str().unwrap()).unwrap();
+        let id = load(&dbfile).unwrap().media[0].id;
+        progress(&dbfile, id, 2580.0, 2700.0).unwrap();
+        mark(&dbfile, id, true).unwrap();
+        progress(&dbfile, id, 2581.0, 2700.0).unwrap();
+        let item = load(&dbfile).unwrap().media.remove(0);
+        assert!(item.watched);
+        assert_eq!(item.position, 2581.0);
+    }
+    #[test]
     fn availability_preserves_history_and_recovers_without_rescan() {
         let temp = tempfile::tempdir().unwrap();
         let folder = temp.path().join("Show");

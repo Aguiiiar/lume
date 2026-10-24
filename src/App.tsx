@@ -347,7 +347,6 @@ export default function App() {
     try {
       await invoke("media_mark", { id: m.id, watched: !m.watched });
       await reload();
-      setDetail(null);
       notify(
         m.watched
           ? "Episódio marcado como não assistido."
@@ -516,7 +515,7 @@ export default function App() {
             <span>Configurações</span>
           </button>
           <div className="sidebar-version">
-            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.7"}</span>
+            LUME PARA WINDOWS <span>v{runtime?.version ?? "0.1.8"}</span>
           </div>
         </div>
       </aside>
@@ -1245,7 +1244,7 @@ export default function App() {
                       Um espaço para as suas histórias.
                       <br />
                       <span>
-                        Versão {runtime?.version ?? "0.1.7"} · Windows ·
+                        Versão {runtime?.version ?? "0.1.8"} · Windows ·
                         Biblioteca local
                       </span>
                     </p>

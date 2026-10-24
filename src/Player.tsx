@@ -9,6 +9,7 @@ import PlayerControls from "./PlayerControls";
 import usePlayerOverlay from "./usePlayerOverlay";
 import { type Track } from "./tracks";
 import type { Chapter } from "./chapters";
+import { advanceEpisode } from "./advanceEpisode";
 export interface Snapshot {
   id: number;
   position: number;
@@ -39,6 +40,7 @@ export default function Player({
 }) {
   const stage = useRef<HTMLDivElement>(null),
     ready = useRef(false),
+    advancing = useRef(false),
     closing = useRef(false);
   const [state, setState] = useState<Snapshot>({
     id: media.id,
@@ -88,6 +90,21 @@ export default function Player({
       .catch(() => {});
     onClose();
   };
+  const nextEpisode = async (complete = false) => {
+    if (!onNext || advancing.current || closing.current) return;
+    advancing.current = true;
+    try {
+      await advanceEpisode(
+        complete,
+        () => invoke("player_stop"),
+        () => invoke("media_mark", { id: media.id, watched: true }),
+        onNext,
+      );
+    } catch (e) {
+      advancing.current = false;
+      setError(String(e));
+    }
+  };
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
@@ -135,8 +152,8 @@ export default function Player({
     { media, state, loading, error, fullscreen, hasNext: !!onNext },
     (action, value) => {
       if (action === "close") void close();
-      else if (action === "next" && onNext)
-        void invoke("player_stop").then(onNext);
+      else if (action === "next") void nextEpisode();
+      else if (action === "complete-next") void nextEpisode(true);
       else if (action === "fullscreen") void onToggleFullscreen();
       else void control(action, value);
     },
@@ -244,7 +261,7 @@ export default function Player({
         onNext={
           onNext
             ? () => {
-                void invoke("player_stop").then(onNext);
+                void nextEpisode();
               }
             : undefined
         }

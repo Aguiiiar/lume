@@ -1,5 +1,11 @@
 # Histórico de versões
 
+## 0.1.8 — marcação de episódios assistidos
+
+- Marcar um episódio como assistido ou não assistido mantém a lista aberta e o filtro de temporada selecionado, permitindo ajustar vários episódios em sequência.
+- O botão contextual de próximo episódio, exibido nos créditos finais ou após o fim do vídeo, marca o episódio atual como assistido antes de avançar.
+- O botão convencional de próximo episódio, ao lado da legenda, continua apenas navegando e preserva o progresso de episódios incompletos.
+
 ## 0.1.7 — agrupamento por pasta e arquivos indisponíveis
 
 - Séries e animes agrupados pela pasta da obra, incluindo subpastas de temporada e episódio, independentemente de traduções e variações nos nomes dos arquivos.
